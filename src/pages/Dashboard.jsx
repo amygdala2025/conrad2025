@@ -1,78 +1,56 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
-  LineChart,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Line,
-  Tooltip,
-  ResponsiveContainer,
+  LineChart, Line, XAxis, YAxis,
+  CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from "recharts";
 
 function Dashboard({ apiBase }) {
-  const [log, setLog] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [userId, setUserId] = useState("");
+  const [sessions, setSessions] = useState([]);
 
-  const FAKE_USER_ID = "test-user-1";
-
-  const loadDashboard = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${apiBase}/api/dashboard`, {
-        headers: { Authorization: `Bearer ${FAKE_USER_ID}` },
-      });
-      const data = await res.json();
-      setLog(data.sessions || []);
-    } catch (err) {
-      console.error(err);
-    }
-    setLoading(false);
+  const loadData = async () => {
+    const res = await fetch(`${apiBase}/api/dashboard/${userId}`);
+    const data = await res.json();
+    setSessions(data.sessions);
   };
 
-  useEffect(() => {
-    loadDashboard();
-  }, []);
-
-  const chartData = log.map((s) => ({
-    date: s.date,
-    suds: s.suds,
+  const chartData = sessions.map((s, idx) => ({
+    idx,
+    pre: s.suds_pre,
+    post: s.suds_post
   }));
 
   return (
-    <div>
+    <div style={{ maxWidth: 900 }}>
       <h2>Dashboard</h2>
+      <input
+        value={userId}
+        placeholder="User ID"
+        onChange={(e) => setUserId(e.target.value)}
+      />
+      <button onClick={loadData}>Load Dashboard</button>
 
-      <h3>SUDS Trend Over Time</h3>
+      <h3>SUDS Trend</h3>
 
-      <div style={{ width: "100%", height: "300px" }}>
+      <div style={{ width: "100%", height: 300 }}>
         <ResponsiveContainer>
           <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" />
+            <XAxis dataKey="idx" />
             <YAxis domain={[0, 100]} />
             <Tooltip />
-            <Line type="monotone" dataKey="suds" stroke="#ff5252" strokeWidth={2} />
+            <Legend />
+            <Line type="monotone" dataKey="pre" stroke="#8884d8" />
+            <Line type="monotone" dataKey="post" stroke="#82ca9d" />
           </LineChart>
         </ResponsiveContainer>
       </div>
 
-      <h3 style={{ marginTop: "2rem" }}>Session Log</h3>
-
-      {log.map((s, idx) => (
-        <div
-          key={idx}
-          style={{
-            marginTop: "1rem",
-            padding: "1rem",
-            border: "1px solid #ddd",
-            borderRadius: "8px",
-            background: "#fafafa",
-          }}
-        >
-          <p><b>Date:</b> {s.date}</p>
-          <p><b>SUDS:</b> {s.suds}</p>
-          <p><b>Story:</b></p>
-          <div style={{ whiteSpace: "pre-line" }}>{s.story}</div>
+      <h3>Stories</h3>
+      {sessions.map((s) => (
+        <div key={s.session_id} style={{ marginBottom: 20 }}>
+          <b>Session {s.session_id}</b>
+          <p>{s.story}</p>
+          <p>pre: {s.suds_pre} / post: {s.suds_post}</p>
         </div>
       ))}
     </div>
