@@ -1,58 +1,78 @@
-import { useState } from "react";
+// src/pages/Dashboard.jsx
+import { useEffect, useState } from "react";
 import {
-  LineChart, Line, XAxis, YAxis,
-  CartesianGrid, Tooltip, Legend, ResponsiveContainer
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  ResponsiveContainer,
 } from "recharts";
 
+const DEMO_USER_ID = "demo-user";
+
 function Dashboard({ apiBase }) {
-  const [userId, setUserId] = useState("");
   const [sessions, setSessions] = useState([]);
+  const [status, setStatus] = useState("");
 
-  const loadData = async () => {
-    const res = await fetch(`${apiBase}/api/dashboard/${userId}`);
-    const data = await res.json();
-    setSessions(data.sessions);
-  };
+  useEffect(() => {
+    const loadDashboard = async () => {
+      setStatus("Loading dashboard data...");
+      try {
+        const res = await fetch(`${apiBase}/api/dashboard/${DEMO_USER_ID}`);
+        if (!res.ok) throw new Error("Failed to load dashboard");
+        const data = await res.json();
+        const sorted = (data.sessions || []).sort(
+          (a, b) => new Date(a.created_at) - new Date(b.created_at)
+        );
+        setSessions(sorted);
+        setStatus("✅ Dashboard data loaded.");
+      } catch (e) {
+        console.error(e);
+        setStatus("❌ Failed to load dashboard.");
+      }
+    };
 
-  const chartData = sessions.map((s, idx) => ({
-    idx,
-    pre: s.suds_pre,
-    post: s.suds_post
-  }));
+    loadDashboard();
+  }, [apiBase]);
+
+  const chartData = sessions
+    .filter((s) => s.suds_pre != null && s.suds_post != null)
+    .map((s, idx) => ({
+      index: idx + 1,
+      pre: s.suds_pre,
+      post: s.suds_post,
+    }));
 
   return (
-    <div style={{ maxWidth: 900 }}>
-      <h2>Dashboard</h2>
-      <input
-        value={userId}
-        placeholder="User ID"
-        onChange={(e) => setUserId(e.target.value)}
-      />
-      <button onClick={loadData}>Load Dashboard</button>
+    <div className="panel">
+      <h2>Dashboard – SUDS Over Time</h2>
+      <p className="sub">
+        This chart shows how your SUDS scores change before and after each session. Over time, you should
+        see the overall distress trend going down.
+      </p>
 
-      <h3>SUDS Trend</h3>
+      <div className="status-text">{status}</div>
 
-      <div style={{ width: "100%", height: 300 }}>
-        <ResponsiveContainer>
-          <LineChart data={chartData}>
-            <XAxis dataKey="idx" />
-            <YAxis domain={[0, 100]} />
-            <Tooltip />
-            <Legend />
-            <Line type="monotone" dataKey="pre" stroke="#8884d8" />
-            <Line type="monotone" dataKey="post" stroke="#82ca9d" />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+      {chartData.length === 0 && (
+        <p className="sub">No sessions with both pre and post SUDS recorded yet.</p>
+      )}
 
-      <h3>Stories</h3>
-      {sessions.map((s) => (
-        <div key={s.session_id} style={{ marginBottom: 20 }}>
-          <b>Session {s.session_id}</b>
-          <p>{s.story}</p>
-          <p>pre: {s.suds_pre} / post: {s.suds_post}</p>
+      {chartData.length > 0 && (
+        <div className="chart-card">
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="index" label={{ value: "Session", position: "insideBottomRight", offset: -5 }} />
+              <YAxis domain={[0, 100]} />
+              <Tooltip />
+              <Line type="monotone" dataKey="pre" stroke="#f97373" name="Pre SUDS" />
+              <Line type="monotone" dataKey="post" stroke="#22c55e" name="Post SUDS" />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
-      ))}
+      )}
     </div>
   );
 }
