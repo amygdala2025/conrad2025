@@ -6,6 +6,7 @@ import Intake from "./pages/Intake.jsx";
 import Session from "./pages/Session.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 
+
 // TODO: 나중에 Cloud Run URL로 교체
 const API_BASE = "https://ptsd-backend-761910111968.asia-northeast3.run.app";
 
