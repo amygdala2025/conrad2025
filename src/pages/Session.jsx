@@ -1,134 +1,133 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 function Session({ apiBase }) {
-  const [loading, setLoading] = useState(false);
+  const [userId, setUserId] = useState("");
+  const [keywords, setKeywords] = useState([]);
+  const [intensity, setIntensity] = useState(0.7);
+
+  const [preSuds, setPreSuds] = useState(null);
+  const [postSuds, setPostSuds] = useState(null);
+
+  const [sessionId, setSessionId] = useState(null);
   const [story, setStory] = useState("");
-  const [suds, setSuds] = useState(null);
-  const [submitStatus, setSubmitStatus] = useState("");
+  const [nextIntensity, setNextIntensity] = useState(null);
 
-  const FAKE_USER_ID = "test-user-1";
+  const loadKeywords = async () => {
+    const res = await fetch(`${apiBase}/api/dashboard/${userId}`);
+    const data = await res.json();
 
-  const SUDS_OPTIONS = [
-    { value: 0, label: "0 — No distress" },
-    { value: 10, label: "10 — Very minimal distress" },
-    { value: 20, label: "20 — Mild discomfort" },
-    { value: 30, label: "30 — Noticeable discomfort" },
-    { value: 40, label: "40 — Moderate discomfort" },
-    { value: 50, label: "50 — Clear anxiety present" },
-    { value: 60, label: "60 — Strong discomfort" },
-    { value: 70, label: "70 — High anxiety" },
-    { value: 80, label: "80 — Severe distress" },
-    { value: 90, label: "90 — Extreme distress" },
-    { value: 100, label: "100 — Maximum imaginable distress" }
-  ];
+    // trauma keywords = USERS[user_id].keywords 이므로 그냥 `api/trauma`에서 저장됨
+    // Dashboard endpoint doesn't include keywords → we fetch from trauma endpoint
+    const traumaRes = await fetch(`${apiBase}/api/trauma`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId, trauma_text: "" })
+    });
 
-  const loadStory = async () => {
-    setLoading(true);
-    setSubmitStatus("");
-
-    try {
-      const res = await fetch(`${apiBase}/api/session/generate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${FAKE_USER_ID}`,
-        },
-        body: JSON.stringify({}),
-      });
-      const data = await res.json();
-      setStory(data.story || "No story returned.");
-    } catch (err) {
-      console.error(err);
-      setStory("Error loading story. Check backend.");
-    }
-
-    setLoading(false);
+    // But more correct: you already saved keywords in intake
+    // So we just fetch last known trauma keywords
+    setKeywords(data.sessions.length > 0 ? data.sessions[0].keywords : []);
   };
 
-  const submitSUDS = async () => {
-    if (suds === null) {
-      setSubmitStatus("⚠ Please select a SUDS score before submitting.");
-      return;
-    }
+  const requestStory = async () => {
+    const res = await fetch(`${apiBase}/api/story`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: userId,
+        keywords,
+        intensity
+      })
+    });
 
-    try {
-      const res = await fetch(`${apiBase}/api/session/suds`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${FAKE_USER_ID}`,
-        },
-        body: JSON.stringify({ suds }),
-      });
-
-      const data = await res.json();
-      setSubmitStatus("✅ SUDS submitted successfully.");
-    } catch (err) {
-      setSubmitStatus("❌ Error submitting SUDS.");
-    }
+    const data = await res.json();
+    setStory(data.story);
+    setSessionId(data.session_id);
   };
 
-  useEffect(() => {
-    loadStory();
-  }, []);
+  const submitPre = async () => {
+    await fetch(`${apiBase}/api/suds/pre`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sessionId, suds_score: preSuds })
+    });
+  };
+
+  const submitPost = async () => {
+    const res = await fetch(`${apiBase}/api/suds/post`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sessionId, suds_score: postSuds })
+    });
+
+    const data = await res.json();
+    setNextIntensity(data.new_intensity);
+  };
 
   return (
-    <div>
+    <div style={{ maxWidth: 700 }}>
       <h2>Therapy Session</h2>
 
-      <button onClick={loadStory} disabled={loading}>
-        {loading ? "Loading..." : "Load New Story"}
+      <label>User ID</label>
+      <input
+        value={userId}
+        onChange={(e) => setUserId(e.target.value)}
+        style={{ width: "100%", marginBottom: 10 }}
+      />
+
+      <button onClick={loadKeywords}>Load Keywords</button>
+
+      {keywords.length > 0 && (
+        <div>
+          <h3>Keywords</h3>
+          <ul>{keywords.map(k => <li key={k}>{k}</li>)}</ul>
+        </div>
+      )}
+
+      <label>Story Intensity (temperature)</label>
+      <input
+        type="number"
+        step="0.1"
+        min="0.1"
+        max="1.5"
+        value={intensity}
+        onChange={(e) => setIntensity(parseFloat(e.target.value))}
+      />
+
+      <button onClick={requestStory} style={{ marginTop: 10 }}>
+        Request Story
       </button>
 
-      <div style={{ marginTop: "1.5rem", whiteSpace: "pre-line" }}>
-        <h3>Generated Story</h3>
-        <div
-          style={{
-            border: "1px solid #ddd",
-            borderRadius: "8px",
-            padding: "1rem",
-            background: "#fafafa",
-          }}
-        >
-          {story}
-        </div>
-      </div>
+      {story && (
+        <div>
+          <h3>Generated Story</h3>
+          <p>{story}</p>
 
-      <div style={{ marginTop: "2rem" }}>
-        <h3>Your SUDS Level</h3>
-
-        <p>Select your distress level (0–100):</p>
-
-        <div style={{ marginBottom: "1rem" }}>
-          <img
-            src="https://i.imgur.com/cC7n3CH.png"
-            alt="SUDS scale"
-            style={{ width: "100%", borderRadius: "10px" }}
+          <h3>Pre-session SUDS</h3>
+          <input
+            type="number"
+            min="0"
+            max="100"
+            value={preSuds || ""}
+            onChange={(e) => setPreSuds(parseInt(e.target.value))}
           />
+          <button onClick={submitPre}>Submit Pre-SUDS</button>
+
+          <h3>Post-session SUDS</h3>
+          <input
+            type="number"
+            min="0"
+            max="100"
+            value={postSuds || ""}
+            onChange={(e) => setPostSuds(parseInt(e.target.value))}
+          />
+          <button onClick={submitPost}>Submit Post-SUDS</button>
+
+          {nextIntensity && (
+            <p>➡ Next session recommended intensity: <b>{nextIntensity.toFixed(2)}</b></p>
+          )}
         </div>
-
-        <select
-          value={suds ?? ""}
-          onChange={(e) => setSuds(Number(e.target.value))}
-          style={{ padding: "0.5rem", fontSize: "1rem" }}
-        >
-          <option value="">Select SUDS score</option>
-          {SUDS_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-
-        <button
-          onClick={submitSUDS}
-          style={{ marginLeft: "1rem", padding: "0.5rem 1rem" }}
-        >
-          Submit
-        </button>
-
-        <p style={{ marginTop: "1rem" }}>{submitStatus}</p>
-      </div>
+      )}
     </div>
   );
 }
