@@ -1,55 +1,85 @@
-// src/pages/Intake.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 function Intake({ apiBase }) {
-  const [text, setText] = useState("");
-  const [result, setResult] = useState("");
+  const [userId, setUserId] = useState("");
+  const [trauma, setTrauma] = useState("");
+  const [keywords, setKeywords] = useState([]);
+  const [sudsScale, setSudsScale] = useState(null);
+  const [msg, setMsg] = useState("");
 
-  const FAKE_USER_ID = "test-user-1"; // Replace with Firebase token later
+  useEffect(() => {
+    fetch(`${apiBase}/api/suds/scale`)
+      .then(res => res.json())
+      .then(data => setSudsScale(data.scale));
+  }, []);
 
-  const handleSubmit = async () => {
-    try {
-      const res = await fetch(`${apiBase}/api/trauma-profile`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${FAKE_USER_ID}`,
-        },
-        body: JSON.stringify({ raw_text: text }),
-      });
-      if (!res.ok) throw new Error("Error");
-
-      const data = await res.json();
-      setResult(
-        `Saved! trauma_profile_id=${data.trauma_profile_id}, keywords=${data.keywords.join(
-          ", "
-        )}`
-      );
-    } catch (e) {
-      setResult("Error occurred: API / CORS / Token issue");
+  const submitTrauma = async () => {
+    if (!userId || !trauma) {
+      setMsg("Please enter both User ID and trauma description.");
+      return;
     }
+
+    const res = await fetch(`${apiBase}/api/trauma`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: userId,
+        trauma_text: trauma
+      })
+    });
+
+    const data = await res.json();
+    setKeywords(data.keywords);
+    setMsg("Trauma profile saved. Keywords extracted.");
   };
 
   return (
-    <div>
-      <h2>Intake</h2>
-      <p>Enter your trauma narrative to test backend connection.</p>
+    <div style={{ maxWidth: 700 }}>
+      <h2>Intake – Trauma Registration</h2>
 
-      <textarea
-        style={{ width: "100%", height: "150px", marginTop: "0.5rem" }}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
+      <label>User ID</label>
+      <input
+        style={{ width: "100%", marginBottom: 10 }}
+        value={userId}
+        onChange={(e) => setUserId(e.target.value)}
       />
 
-      <br />
-      <button onClick={handleSubmit} style={{ marginTop: "0.5rem" }}>
-        Send to Backend
+      <label>Describe your trauma (free text)</label>
+      <textarea
+        style={{ width: "100%", height: 150 }}
+        value={trauma}
+        onChange={(e) => setTrauma(e.target.value)}
+      />
+
+      <button onClick={submitTrauma} style={{ marginTop: 10 }}>
+        Submit Trauma
       </button>
 
-      <p style={{ marginTop: "1rem" }}>{result}</p>
+      <p>{msg}</p>
+
+      {keywords.length > 0 && (
+        <div>
+          <h3>Extracted Keywords</h3>
+          <ul>
+            {keywords.map((k) => (
+              <li key={k}>{k}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {sudsScale && (
+        <div>
+          <h3>SUDS Scale (0–100)</h3>
+          <ul>
+            {Object.entries(sudsScale).map(([score, desc]) => (
+              <li key={score}><b>{score}</b> → {desc}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
 
 export default Intake;
-

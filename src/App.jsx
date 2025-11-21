@@ -6,10 +6,14 @@ import Intake from "./pages/Intake.jsx";
 import Session from "./pages/Session.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 
-const API_BASE = "https://your-cloud-run-url.a.run.app"; // TODO: replace
+// TODO: 나중에 Cloud Run URL로 교체
+const API_BASE = "https://ptsd-backend-761910111968.asia-northeast3.run.app";
 
 function App() {
-  const [apiStatus, setApiStatus] = useState("Checking backend status...");
+  const [apiStatus, setApiStatus] = useState({
+    text: "Checking backend connection...",
+    ok: null,
+  });
   const location = useLocation();
 
   useEffect(() => {
@@ -18,9 +22,15 @@ function App() {
         const res = await fetch(`${API_BASE}/api/health`);
         if (!res.ok) throw new Error("Health check failed");
         const data = await res.json();
-        setApiStatus(`✅ Backend connected (${data.time})`);
+        setApiStatus({
+          text: `Backend connected (${new Date(data.time).toLocaleTimeString()})`,
+          ok: true,
+        });
       } catch (err) {
-        setApiStatus("❌ Failed to connect to backend - Check URL/CORS settings");
+        setApiStatus({
+          text: "Failed to connect to backend - Check URL/CORS settings",
+          ok: false,
+        });
       }
     };
     checkHealth();
@@ -28,57 +38,150 @@ function App() {
 
   return (
     <div className="app">
-      {/* Navigation */}
+      {/* Top navigation */}
       <header className="app-header">
-        <div className="app-logo">
-          <span className="logo-mark">Ψ</span>
-          <div>
-            <div className="logo-title">PTSD Digital Exposure Therapy</div>
-            <div className="logo-sub">LLM-based Adaptive Story Platform</div>
+        <div className="app-header-inner">
+          <div className="app-logo">
+            <div className="logo-icon">Ψ</div>
+            <div className="logo-text">
+              <div className="logo-title">PTSD Digital Exposure Therapy</div>
+              <div className="logo-sub">LLM-based Adaptive Story Platform</div>
+            </div>
           </div>
-        </div>
 
-        <nav className="app-nav">
-          <NavLink to="/intake" currentPath={location.pathname}>
-            Intake
-          </NavLink>
-          <NavLink to="/session" currentPath={location.pathname}>
-            Session
-          </NavLink>
-          <NavLink to="/dashboard" currentPath={location.pathname}>
-            Dashboard
-          </NavLink>
-        </nav>
+          <nav className="app-nav">
+            <NavLink to="/intake" currentPath={location.pathname}>
+              Intake
+            </NavLink>
+            <NavLink to="/session" currentPath={location.pathname}>
+              Session
+            </NavLink>
+            <NavLink to="/dashboard" currentPath={location.pathname}>
+              Dashboard
+            </NavLink>
+          </nav>
+        </div>
       </header>
 
-      {/* API status */}
-      <div className="api-status">{apiStatus}</div>
-
-      {/* Page content */}
+      {/* Main layout */}
       <main className="app-main">
         <Routes>
           <Route
             path="/"
             element={
-              <div>
-                <h2>PTSD LLM-Based Digital Exposure Therapy</h2>
-                <p>
-                  This platform allows users to write their trauma narrative, generates
-                  exposure stories using an LLM, and adjusts story intensity based on
-                  SUDs score changes.
-                </p>
+              <section className="home-hero">
+                <div className="home-hero-left">
+                  <div className="badge-row">
+                    <span className="badge-pill">Prototype · Research Only</span>
+                    <span
+                      className={
+                        apiStatus.ok === null
+                          ? "badge-status badge-status-neutral"
+                          : apiStatus.ok
+                          ? "badge-status badge-status-ok"
+                          : "badge-status badge-status-error"
+                      }
+                    >
+                      {apiStatus.ok === null
+                        ? "Checking backend…"
+                        : apiStatus.ok
+                        ? "Backend: Online"
+                        : "Backend: Offline"}
+                    </span>
+                  </div>
 
-                <ul>
-                  <li>① Intake: Write trauma narrative + record initial SUDs</li>
-                  <li>② Session: Read LLM-generated story + record post-session SUDs</li>
-                  <li>③ Dashboard: Track SUDs trends and session history</li>
-                </ul>
+                  <h1 className="hero-title">
+                    PTSD LLM-Based{" "}
+                    <span className="hero-title-highlight">
+                      Digital Exposure Therapy
+                    </span>
+                  </h1>
 
-                <p style={{ marginTop: "1rem" }}>
-                  Use the navigation bar above to access <b>Intake</b>, <b>Session</b>, and{" "}
-                  <b>Dashboard</b>.
-                </p>
-              </div>
+                  <p className="hero-subtitle">
+                    This experimental platform helps you prototype a workflow where
+                    users write their trauma narrative, receive LLM-generated exposure
+                    stories, and modulate story intensity based on SUDs score changes
+                    over time.
+                  </p>
+
+                  <ul className="hero-bullets">
+                    <li>Capture trauma narrative in a structured, secure intake flow.</li>
+                    <li>
+                      Generate exposure stories with an LLM conditioned on user
+                      keywords &amp; SUDs.
+                    </li>
+                    <li>
+                      Visualize how SUDs scores change across sessions on the dashboard.
+                    </li>
+                  </ul>
+
+                  <div className="hero-buttons">
+                    <Link to="/intake" className="btn-primary">
+                      Start with Intake
+                    </Link>
+                    <Link to="/dashboard" className="btn-ghost">
+                      View Dashboard
+                    </Link>
+                  </div>
+
+                  <p className="hero-caption">
+                    ⚠️ This prototype is for research and engineering purposes only and
+                    is <strong>not</strong> a clinical product.
+                  </p>
+                </div>
+
+                <div className="home-hero-right">
+                  <div className="flow-card">
+                    <h2 className="flow-title">Therapy Flow</h2>
+                    <ol className="flow-steps">
+                      <li>
+                        <span className="step-index">01</span>
+                        <div className="step-content">
+                          <div className="step-title">Intake &amp; Baseline</div>
+                          <div className="step-desc">
+                            User signs in, writes their trauma narrative, and records an
+                            initial SUDs score for that narrative.
+                          </div>
+                        </div>
+                      </li>
+                      <li>
+                        <span className="step-index">02</span>
+                        <div className="step-content">
+                          <div className="step-title">Exposure Session</div>
+                          <div className="step-desc">
+                            LLM generates a story based on extracted keywords and
+                            current intensity level. After reading, the user records a
+                            post-session SUDs score.
+                          </div>
+                        </div>
+                      </li>
+                      <li>
+                        <span className="step-index">03</span>
+                        <div className="step-content">
+                          <div className="step-title">Adaptive Tuning</div>
+                          <div className="step-desc">
+                            The backend adjusts story intensity based on SUDs deltas and
+                            logs the trajectory to the dashboard.
+                          </div>
+                        </div>
+                      </li>
+                    </ol>
+
+                    <div className="flow-footer">
+                      <span className="flow-tag">Next steps</span>
+                      <span className="flow-footer-text">
+                        Connect Cloud Run backend, Firestore DB, and HuggingFace models
+                        to activate this flow end-to-end.
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="status-card">
+                    <div className="status-label">Backend status</div>
+                    <div className="status-text">{apiStatus.text}</div>
+                  </div>
+                </div>
+              </section>
             }
           />
           <Route path="/intake" element={<Intake apiBase={API_BASE} />} />
@@ -103,4 +206,3 @@ function NavLink({ to, currentPath, children }) {
 }
 
 export default App;
-
