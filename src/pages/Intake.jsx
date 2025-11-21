@@ -1,81 +1,67 @@
-import { useState, useEffect } from "react";
+// src/pages/Intake.jsx
+import { useState } from "react";
+
+const DEMO_USER_ID = "demo-user";
 
 function Intake({ apiBase }) {
-  const [userId, setUserId] = useState("");
-  const [trauma, setTrauma] = useState("");
+  const [traumaText, setTraumaText] = useState("");
   const [keywords, setKeywords] = useState([]);
-  const [sudsScale, setSudsScale] = useState(null);
-  const [msg, setMsg] = useState("");
+  const [status, setStatus] = useState("");
 
-  useEffect(() => {
-    fetch(`${apiBase}/api/suds/scale`)
-      .then(res => res.json())
-      .then(data => setSudsScale(data.scale));
-  }, []);
+  const handleSubmit = async () => {
+    setStatus("Saving trauma narrative...");
+    try {
+      const res = await fetch(`${apiBase}/api/trauma`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: DEMO_USER_ID,
+          trauma_text: traumaText,
+        }),
+      });
 
-  const submitTrauma = async () => {
-    if (!userId || !trauma) {
-      setMsg("Please enter both User ID and trauma description.");
-      return;
+      if (!res.ok) throw new Error("Failed to store trauma");
+
+      const data = await res.json();
+      setKeywords(data.keywords || []);
+      setStatus("✅ Trauma narrative saved and keywords extracted.");
+    } catch (e) {
+      console.error(e);
+      setStatus("❌ Failed to save trauma narrative. Check backend / network.");
     }
-
-    const res = await fetch(`${apiBase}/api/trauma`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user_id: userId,
-        trauma_text: trauma
-      })
-    });
-
-    const data = await res.json();
-    setKeywords(data.keywords);
-    setMsg("Trauma profile saved. Keywords extracted.");
   };
 
   return (
-    <div style={{ maxWidth: 700 }}>
-      <h2>Intake – Trauma Registration</h2>
+    <div className="panel">
+      <h2>Intake – Trauma Narrative</h2>
+      <p className="sub">
+        Write a brief description of your trauma experience in your own words.  
+        This text will be used only to extract keywords and generate controlled exposure stories.
+      </p>
 
-      <label>User ID</label>
-      <input
-        style={{ width: "100%", marginBottom: 10 }}
-        value={userId}
-        onChange={(e) => setUserId(e.target.value)}
-      />
-
-      <label>Describe your trauma (free text)</label>
       <textarea
-        style={{ width: "100%", height: 150 }}
-        value={trauma}
-        onChange={(e) => setTrauma(e.target.value)}
+        className="text-input"
+        placeholder="Describe your trauma experience here..."
+        value={traumaText}
+        onChange={(e) => setTraumaText(e.target.value)}
       />
 
-      <button onClick={submitTrauma} style={{ marginTop: 10 }}>
-        Submit Trauma
+      <button className="primary-btn" onClick={handleSubmit}>
+        Save Trauma & Extract Keywords
       </button>
 
-      <p>{msg}</p>
+      <div className="status-text">{status}</div>
 
       {keywords.length > 0 && (
-        <div>
+        <div className="card">
           <h3>Extracted Keywords</h3>
-          <ul>
+          <div className="chip-row">
             {keywords.map((k) => (
-              <li key={k}>{k}</li>
+              <span key={k} className="chip">
+                {k}
+              </span>
             ))}
-          </ul>
-        </div>
-      )}
-
-      {sudsScale && (
-        <div>
-          <h3>SUDS Scale (0–100)</h3>
-          <ul>
-            {Object.entries(sudsScale).map(([score, desc]) => (
-              <li key={score}><b>{score}</b> → {desc}</li>
-            ))}
-          </ul>
+          </div>
         </div>
       )}
     </div>
