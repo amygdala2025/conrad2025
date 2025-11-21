@@ -1,15 +1,14 @@
-// src/pages/Intake.jsx
 import { useState } from "react";
 
 function Intake({ apiBase }) {
   const [text, setText] = useState("");
   const [result, setResult] = useState("");
 
-  const FAKE_USER_ID = "test-user-1"; // Replace with Firebase token later
+  const FAKE_USER_ID = "test-user-1";
 
-  const handleSubmit = async () => {
+  const submitTrauma = async () => {
     try {
-      const res = await fetch(`${apiBase}/api/trauma-profile`, {
+      const res = await fetch(`${apiBase}/api/intake/trauma`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -17,23 +16,20 @@ function Intake({ apiBase }) {
         },
         body: JSON.stringify({ raw_text: text }),
       });
-      if (!res.ok) throw new Error("Error");
 
       const data = await res.json();
       setResult(
-        `Saved! trauma_profile_id=${data.trauma_profile_id}, keywords=${data.keywords.join(
-          ", "
-        )}`
+        `Saved! Trauma Profile ID: ${data.trauma_profile_id}\nKeywords: ${data.keywords.join(", ")}`
       );
-    } catch (e) {
-      setResult("Error occurred: API / CORS / Token issue");
+    } catch (err) {
+      setResult("Error sending trauma text to backend.");
     }
   };
 
   return (
     <div>
       <h2>Intake</h2>
-      <p>Enter your trauma narrative to test backend connection.</p>
+      <p>Write your trauma narrative. Keywords will be extracted automatically.</p>
 
       <textarea
         style={{ width: "100%", height: "150px", marginTop: "0.5rem" }}
@@ -42,14 +38,16 @@ function Intake({ apiBase }) {
       />
 
       <br />
-      <button onClick={handleSubmit} style={{ marginTop: "0.5rem" }}>
-        Send to Backend
+
+      <button onClick={submitTrauma} style={{ marginTop: "0.7rem" }}>
+        Submit Trauma
       </button>
 
-      <p style={{ marginTop: "1rem" }}>{result}</p>
+      <pre style={{ marginTop: "1rem", background: "#eee", padding: "1rem" }}>
+        {result}
+      </pre>
     </div>
   );
 }
 
 export default Intake;
-
