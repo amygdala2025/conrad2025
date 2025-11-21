@@ -1,133 +1,183 @@
-import { useState } from "react";
+// src/pages/Session.jsx
+import { useEffect, useState } from "react";
+
+const DEMO_USER_ID = "demo-user";
 
 function Session({ apiBase }) {
-  const [userId, setUserId] = useState("");
-  const [keywords, setKeywords] = useState([]);
-  const [intensity, setIntensity] = useState(0.7);
-
-  const [preSuds, setPreSuds] = useState(null);
-  const [postSuds, setPostSuds] = useState(null);
-
-  const [sessionId, setSessionId] = useState(null);
+  const [sudsScale, setSudsScale] = useState({});
+  const [currentSuds, setCurrentSuds] = useState(0);
   const [story, setStory] = useState("");
-  const [nextIntensity, setNextIntensity] = useState(null);
+  const [sessionId, setSessionId] = useState(null);
+  const [status, setStatus] = useState("");
+  const [intensity, setIntensity] = useState(0.7); // temperature 초기값
+  const [keywords, setKeywords] = useState([]);
 
-  const loadKeywords = async () => {
-    const res = await fetch(`${apiBase}/api/dashboard/${userId}`);
-    const data = await res.json();
+  useEffect(() => {
+    const loadScale = async () => {
+      try {
+        const res = await fetch(`${apiBase}/api/suds/scale`);
+        const data = await res.json();
+        setSudsScale(data.scale || {});
+      } catch (e) {
+        console.error(e);
+      }
+    };
 
-    // trauma keywords = USERS[user_id].keywords 이므로 그냥 `api/trauma`에서 저장됨
-    // Dashboard endpoint doesn't include keywords → we fetch from trauma endpoint
-    const traumaRes = await fetch(`${apiBase}/api/trauma`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: userId, trauma_text: "" })
-    });
+    // 사용자의 키워드는 dashboard/trauma에서 불러와도 되지만
+    // 지금은 단순화를 위해 mock
+    setKeywords(["car", "night", "rain", "accident"]);
+    loadScale();
+  }, [apiBase]);
 
-    // But more correct: you already saved keywords in intake
-    // So we just fetch last known trauma keywords
-    setKeywords(data.sessions.length > 0 ? data.sessions[0].keywords : []);
+  const handleNewStory = async () => {
+    setStatus("Requesting new story from backend...");
+    setStory("");
+    setSessionId(null);
+
+    try {
+      const res = await fetch(`${apiBase}/api/story`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: DEMO_USER_ID,
+          keywords,
+          intensity,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to generate story");
+      const data = await res.json();
+
+      setStory(data.story);
+      setSessionId(data.session_id);
+      setStatus(
+        `✅ Story generated (session_id=${data.session_id}). Current intensity: ${intensity.toFixed(
+          2
+        )}`
+      );
+    } catch (e) {
+      console.error(e);
+      setStatus("❌ Failed to generate story. Check backend / HuggingFace.");
+    }
   };
 
-  const requestStory = async () => {
-    const res = await fetch(`${apiBase}/api/story`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user_id: userId,
-        keywords,
-        intensity
-      })
-    });
+  const handleRecordPre = async () => {
+    if (!sessionId) {
+      setStatus("⚠️ Start a story first.");
+      return;
+    }
+    setStatus("Recording pre-session SUDS...");
 
-    const data = await res.json();
-    setStory(data.story);
-    setSessionId(data.session_id);
+    try {
+      const res = await fetch(`${apiBase}/api/suds/pre`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: sessionId,
+          suds_score: currentSuds,
+        }),
+      });
+      if (!res.ok) throw new Error("Error recording pre SUDS");
+      await res.json();
+      setStatus(`✅ Pre-session SUDS recorded: ${currentSuds}`);
+    } catch (e) {
+      console.error(e);
+      setStatus("❌ Failed to record pre-session SUDS.");
+    }
   };
 
-  const submitPre = async () => {
-    await fetch(`${apiBase}/api/suds/pre`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session_id: sessionId, suds_score: preSuds })
-    });
-  };
+  const handleRecordPost = async () => {
+    if (!sessionId) {
+      setStatus("⚠️ Start a story first.");
+      return;
+    }
+    setStatus("Recording post-session SUDS...");
 
-  const submitPost = async () => {
-    const res = await fetch(`${apiBase}/api/suds/post`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session_id: sessionId, suds_score: postSuds })
-    });
+    try {
+      const res = await fetch(`${apiBase}/api/suds/post`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: sessionId,
+          suds_score: currentSuds,
+        }),
+      });
 
-    const data = await res.json();
-    setNextIntensity(data.new_intensity);
+      if (!res.ok) throw new Error("Error recording post SUDS");
+      const data = await res.json();
+      setStatus(
+        `✅ Post-session SUDS recorded: ${currentSuds}. Next intensity suggested: ${data.new_intensity.toFixed(
+          2
+        )}`
+      );
+      setIntensity(data.new_intensity);
+    } catch (e) {
+      console.error(e);
+      setStatus("❌ Failed to record post-session SUDS.");
+    }
   };
 
   return (
-    <div style={{ maxWidth: 700 }}>
-      <h2>Therapy Session</h2>
+    <div className="panel">
+      <h2>Session – Adaptive Exposure Story</h2>
 
-      <label>User ID</label>
-      <input
-        value={userId}
-        onChange={(e) => setUserId(e.target.value)}
-        style={{ width: "100%", marginBottom: 10 }}
-      />
+      <div className="card">
+        <h3>1. SUDS Scale (0–100)</h3>
+        <p className="sub">
+          Use this thermometer to rate your current distress level. 0 means no distress, 100 means the
+          worst distress you can imagine.
+        </p>
 
-      <button onClick={loadKeywords}>Load Keywords</button>
-
-      {keywords.length > 0 && (
-        <div>
-          <h3>Keywords</h3>
-          <ul>{keywords.map(k => <li key={k}>{k}</li>)}</ul>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={10}
+          value={currentSuds}
+          onChange={(e) => setCurrentSuds(parseInt(e.target.value))}
+          className="suds-slider"
+        />
+        <div className="suds-scale-labels">
+          {Object.entries(sudsScale).map(([score, label]) => (
+            <div key={score} className="suds-label-item">
+              <span className="suds-score">{score}</span>
+              <span className="suds-desc">{label}</span>
+            </div>
+          ))}
         </div>
-      )}
 
-      <label>Story Intensity (temperature)</label>
-      <input
-        type="number"
-        step="0.1"
-        min="0.1"
-        max="1.5"
-        value={intensity}
-        onChange={(e) => setIntensity(parseFloat(e.target.value))}
-      />
-
-      <button onClick={requestStory} style={{ marginTop: 10 }}>
-        Request Story
-      </button>
-
-      {story && (
-        <div>
-          <h3>Generated Story</h3>
-          <p>{story}</p>
-
-          <h3>Pre-session SUDS</h3>
-          <input
-            type="number"
-            min="0"
-            max="100"
-            value={preSuds || ""}
-            onChange={(e) => setPreSuds(parseInt(e.target.value))}
-          />
-          <button onClick={submitPre}>Submit Pre-SUDS</button>
-
-          <h3>Post-session SUDS</h3>
-          <input
-            type="number"
-            min="0"
-            max="100"
-            value={postSuds || ""}
-            onChange={(e) => setPostSuds(parseInt(e.target.value))}
-          />
-          <button onClick={submitPost}>Submit Post-SUDS</button>
-
-          {nextIntensity && (
-            <p>➡ Next session recommended intensity: <b>{nextIntensity.toFixed(2)}</b></p>
-          )}
+        <div className="suds-current">
+          Current SUDS: <b>{currentSuds}</b>
         </div>
-      )}
+      </div>
+
+      <div className="card">
+        <h3>2. Story Generation</h3>
+        <p className="sub">
+          Current intensity (LLM temperature): <b>{intensity.toFixed(2)}</b>
+        </p>
+        <button className="primary-btn" onClick={handleNewStory}>
+          Start / Next Story
+        </button>
+
+        {story && (
+          <div className="story-box">
+            <h4>Exposure Story</h4>
+            <p>{story}</p>
+          </div>
+        )}
+
+        <div className="btn-row">
+          <button className="secondary-btn" onClick={handleRecordPre}>
+            Save Pre-session SUDS
+          </button>
+          <button className="secondary-btn" onClick={handleRecordPost}>
+            Save Post-session SUDS & Update Intensity
+          </button>
+        </div>
+      </div>
+
+      <div className="status-text">{status}</div>
     </div>
   );
 }
