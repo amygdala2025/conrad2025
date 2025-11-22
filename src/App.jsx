@@ -5,8 +5,8 @@ import Session from "./pages/Session.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import "./index.css";
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE || "http://localhost:8000";
+const API_BASE = "https://ptsd-backend-761910111968.asia-northeast3.run.app";
+
 
 function App() {
   const [activeTab, setActiveTab] = useState("intake");
