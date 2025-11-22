@@ -1,5 +1,5 @@
 // src/App.jsx
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Intake from "./pages/Intake.jsx";
 import Session from "./pages/Session.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
@@ -7,101 +7,63 @@ import "./index.css";
 
 const API_BASE = "https://ptsd-backend-761910111968.asia-northeast3.run.app";
 
-
 function App() {
-  const [activeTab, setActiveTab] = useState("intake");
-  const [backendStatus, setBackendStatus] = useState("checking");
+  const [page, setPage] = useState("home");
 
-  useEffect(() => {
-    fetch(`${API_BASE}/api/health`)
-      .then((r) => r.json())
-      .then(() => setBackendStatus("ok"))
-      .catch(() => setBackendStatus("error"));
-  }, []);
-
-  const renderTab = () => {
-    if (activeTab === "intake") return <Intake apiBase={API_BASE} />;
-    if (activeTab === "session") return <Session apiBase={API_BASE} />;
-    if (activeTab === "dashboard") return <Dashboard apiBase={API_BASE} />;
-    return null;
+  const renderPage = () => {
+    switch (page) {
+      case "intake":
+        return <Intake API_BASE={API_BASE} />;
+      case "session":
+        return <Session API_BASE={API_BASE} />;
+      case "dashboard":
+        return <Dashboard API_BASE={API_BASE} />;
+      default:
+        return (
+          <div className="home-container">
+            <h1>PTSD Digital Exposure Therapy</h1>
+            <p style={{ marginTop: 8 }}>
+              A controlled, LLM-based adaptive exposure-story therapy tool.
+            </p>
+            <p style={{ marginTop: 4, opacity: 0.7 }}>
+              Choose a menu above to begin.
+            </p>
+          </div>
+        );
+    }
   };
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <div className="app-header-inner">
-          {/* 로고 클릭 → Intake(메인)으로 */}
-          <div
-            className="app-logo"
-            onClick={() => setActiveTab("intake")}
-            style={{ cursor: "pointer" }}
-          >
-            <div className="logo-icon">Ψ</div>
-            <div className="logo-text">
-              <div className="logo-title">PTSD Digital Exposure Therapy</div>
-              <div className="logo-sub">
-                LLM-based Adaptive Story Platform
-              </div>
-            </div>
-          </div>
-
-          <nav className="app-nav">
-            <button
-              className={
-                "nav-link " +
-                (activeTab === "intake" ? "nav-link-active" : "")
-              }
-              onClick={() => setActiveTab("intake")}
-            >
-              Intake
-            </button>
-            <button
-              className={
-                "nav-link " +
-                (activeTab === "session" ? "nav-link-active" : "")
-              }
-              onClick={() => setActiveTab("session")}
-            >
-              Session
-            </button>
-            <button
-              className={
-                "nav-link " +
-                (activeTab === "dashboard" ? "nav-link-active" : "")
-              }
-              onClick={() => setActiveTab("dashboard")}
-            >
-              Dashboard
-            </button>
-          </nav>
+    <div className="app-wrapper">
+      <nav className="top-nav">
+        <div className="nav-left" onClick={() => setPage("home")}>
+          <h2>PTSD Digital Exposure Therapy</h2>
+          <span className="nav-sub">LLM-based Adaptive Story Platform</span>
         </div>
-      </header>
 
-      <main className="app-main">
-        <section>
-          <div className="status-row">
-            <span className="badge-pill">Prototype</span>
-            <span
-              className={
-                "badge-status " +
-                (backendStatus === "ok"
-                  ? "badge-status-ok"
-                  : backendStatus === "error"
-                  ? "badge-status-error"
-                  : "badge-status-neutral")
-              }
-            >
-              {backendStatus === "ok"
-                ? "Backend connected"
-                : backendStatus === "error"
-                ? "Backend error"
-                : "Checking backend..."}
-            </span>
-          </div>
+        <div className="nav-links">
+          <button
+            className={page === "intake" ? "active" : ""}
+            onClick={() => setPage("intake")}
+          >
+            Intake
+          </button>
+          <button
+            className={page === "session" ? "active" : ""}
+            onClick={() => setPage("session")}
+          >
+            Session
+          </button>
+          <button
+            className={page === "dashboard" ? "active" : ""}
+            onClick={() => setPage("dashboard")}
+          >
+            Dashboard
+          </button>
+        </div>
+      </nav>
 
-          {renderTab()}
-        </section>
-      </main>
+      <main className="page-container">{renderPage()}</main>
     </div>
   );
 }
