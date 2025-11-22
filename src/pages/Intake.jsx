@@ -1,69 +1,123 @@
-// src/pages/Intake.jsx
-import { useState } from "react";
-
-const DEMO_USER_ID = "demo-user";
+// src/Intake.jsx
+import { useState, useEffect } from "react";
+import SudsReferenceTable from "./SudsReferenceTable";
 
 function Intake({ apiBase }) {
-  const [traumaText, setTraumaText] = useState("");
+  const [userId, setUserId] = useState("");
+  const [trauma, setTrauma] = useState("");
   const [keywords, setKeywords] = useState([]);
-  const [status, setStatus] = useState("");
+  const [sudsScale, setSudsScale] = useState(null);
+  const [msg, setMsg] = useState("");
 
-  const handleSubmit = async () => {
-    setStatus("Saving trauma narrative...");
+  useEffect(() => {
+    fetch(`${apiBase}/api/suds/scale`)
+      .then((res) => res.json())
+      .then((data) => setSudsScale(data.scale))
+      .catch(() => {});
+  }, [apiBase]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setMsg("");
+
+    if (!userId || !trauma.trim()) {
+      setMsg("User ID와 트라우마 서술을 모두 입력해주세요.");
+      return;
+    }
+
     try {
       const res = await fetch(`${apiBase}/api/trauma`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: DEMO_USER_ID,
-          trauma_text: traumaText,
-        }),
+        body: JSON.stringify({ user_id: userId, trauma_text: trauma }),
       });
 
-      if (!res.ok) throw new Error("Failed to store trauma");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "Failed to save trauma");
+      }
 
       const data = await res.json();
       setKeywords(data.keywords || []);
-      setStatus("✅ Trauma narrative saved and keywords extracted.");
-    } catch (e) {
-      console.error(e);
-      setStatus("❌ Failed to save trauma narrative. Check backend / network.");
+      setMsg("트라우마 서술이 저장되었고, 키워드가 추출되었습니다.");
+    } catch (err) {
+      setMsg(`❌ 저장 중 오류가 발생했습니다: ${err.message}`);
     }
   };
 
   return (
-    <div className="panel">
+    <div>
       <h2>Intake – Trauma Narrative</h2>
-      <p className="sub">
-        Write a brief description of your trauma experience in your own words.  
-        This text will be used only to extract keywords and generate controlled exposure stories.
+      <p className="page-intro">
+        아래에 본인의 트라우마 경험을 자유롭게 서술해주세요. 입력한 내용은 노출 스토리를
+        생성하기 위한 키워드 추출에만 사용됩니다.
       </p>
 
-      <textarea
-        className="text-input"
-        placeholder="Describe your trauma experience here..."
-        value={traumaText}
-        onChange={(e) => setTraumaText(e.target.value)}
-      />
+      <form className="card" onSubmit={handleSubmit}>
+        <div className="field-group">
+          <label>User ID</label>
+          <input
+            type="text"
+            value={userId}
+            placeholder="예: 33"
+            onChange={(e) => setUserId(e.target.value)}
+          />
+        </div>
 
-      <button className="primary-btn" onClick={handleSubmit}>
-        Save Trauma & Extract Keywords
-      </button>
+        <div className="field-group">
+          <label>Trauma Narrative</label>
+          <textarea
+            rows={6}
+            value={trauma}
+            placeholder="자신의 언어로 트라우마 경험을 간단히 설명해주세요."
+            onChange={(e) => setTrauma(e.target.value)}
+          />
+        </div>
 
-      <div className="status-text">{status}</div>
+        <button type="submit" className="primary-btn">
+          Save Trauma &amp; Extract Keywords
+        </button>
+
+        {msg && <p className="status-text">{msg}</p>}
+      </form>
 
       {keywords.length > 0 && (
-        <div className="card">
+        <div className="card" style={{ marginTop: 16 }}>
           <h3>Extracted Keywords</h3>
+          <p className="help-text">
+            이 키워드들은 이후 세션에서 노출 스토리를 생성할 때 사용됩니다.
+          </p>
           <div className="chip-row">
-            {keywords.map((k) => (
-              <span key={k} className="chip">
-                {k}
+            {keywords.map((kw) => (
+              <span key={kw} className="chip">
+                {kw}
               </span>
             ))}
           </div>
         </div>
       )}
+
+      <div className="card" style={{ marginTop: 20 }}>
+        <h3>SUDS 점수 안내</h3>
+        <p className="help-text">
+          세션에서는 현재 느끼는 괴로움 정도를 0–100 점 SUDS로 표시하게 됩니다.
+          아래 표는 각 점수가 대략 어떤 느낌인지 설명합니다.
+        </p>
+        <SudsReferenceTable />
+
+        {sudsScale && (
+          <div className="suds-scale-raw">
+            <h4>Backend SUDS Scale (raw)</h4>
+            <ul>
+              {Object.entries(sudsScale).map(([score, desc]) => (
+                <li key={score}>
+                  <b>{score}</b> → {desc}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
