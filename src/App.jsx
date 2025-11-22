@@ -1,8 +1,8 @@
 // src/App.jsx
 import { useEffect, useState } from "react";
-import Intake from "./Intake";
-import Session from "./Session";
-import Dashboard from "./Dashboard";
+import Intake from "./pages/Intake.jsx";
+import Session from "./pages/Session.jsx";
+import Dashboard from "./pages/Dashboard.jsx";
 import "./index.css";
 
 const API_BASE =
