@@ -1,4 +1,4 @@
-// src/Dashboard.jsx
+// src/pages/Dashboard.jsx
 import { useState } from "react";
 import {
   LineChart,
@@ -23,13 +23,13 @@ function Dashboard({ apiBase }) {
     setSelectedSessionId(null);
 
     if (!userId) {
-      setStatusMsg("User ID를 입력해주세요.");
+      setStatusMsg("Please enter a User ID.");
       return;
     }
 
     try {
       const res = await fetch(`${apiBase}/api/dashboard/${userId}`);
-      if (!res.ok) throw new Error("Dashboard API 실패");
+      if (!res.ok) throw new Error("Dashboard API request failed");
       const data = await res.json();
       const list = data.sessions || [];
       setSessions(list);
@@ -37,7 +37,7 @@ function Dashboard({ apiBase }) {
         setSelectedSessionId(list[list.length - 1].session_id);
       }
     } catch (err) {
-      setStatusMsg(`❌ 데이터를 불러오지 못했습니다: ${err.message}`);
+      setStatusMsg(`❌ Failed to load data: ${err.message}`);
     }
   };
 
@@ -54,7 +54,8 @@ function Dashboard({ apiBase }) {
     <div>
       <h2>Dashboard</h2>
       <p className="page-intro">
-        날짜별로 Pre / Post SUDS 변화와 각 세션에서 생성된 스토리를 한눈에 볼 수 있습니다.
+        Visualize pre- and post-session SUDS scores over time and review the
+        exposure story content for each session.
       </p>
 
       <div className="card">
@@ -64,7 +65,7 @@ function Dashboard({ apiBase }) {
             <input
               type="text"
               value={userId}
-              placeholder="예: 33"
+              placeholder="e.g., 33"
               onChange={(e) => setUserId(e.target.value)}
             />
           </div>
@@ -158,7 +159,7 @@ function Dashboard({ apiBase }) {
                 </>
               ) : (
                 <p className="help-text">
-                  왼쪽에서 보고 싶은 세션을 선택하세요.
+                  Select a session on the left to view its story.
                 </p>
               )}
             </div>
