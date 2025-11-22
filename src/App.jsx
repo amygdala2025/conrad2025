@@ -1,99 +1,108 @@
 // src/App.jsx
 import { useEffect, useState } from "react";
-import { Routes, Route, Link, useLocation } from "react-router-dom";
+import Intake from "./Intake";
+import Session from "./Session";
+import Dashboard from "./Dashboard";
+import "./index.css";
 
-import Intake from "./pages/Intake.jsx";
-import Session from "./pages/Session.jsx";
-import Dashboard from "./pages/Dashboard.jsx";
-
-// 🔧 백엔드 Cloud Run URL
-const API_BASE = "https://ptsd-backend-761910111968.asia-northeast3.run.app";
+const API_BASE =
+  import.meta.env.VITE_API_BASE || "http://localhost:8000";
 
 function App() {
-  const [apiStatus, setApiStatus] = useState("Checking backend status...");
-  const location = useLocation();
+  const [activeTab, setActiveTab] = useState("intake");
+  const [backendStatus, setBackendStatus] = useState("checking");
 
   useEffect(() => {
-    const check = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/health`);
-        if (!res.ok) throw new Error();
-        const data = await res.json();
-        setApiStatus(`✅ Backend connected (${data.time})`);
-      } catch (e) {
-        setApiStatus("❌ Failed to connect to backend - Check URL/CORS");
-      }
-    };
-    check();
+    fetch(`${API_BASE}/api/health`)
+      .then((r) => r.json())
+      .then(() => setBackendStatus("ok"))
+      .catch(() => setBackendStatus("error"));
   }, []);
+
+  const renderTab = () => {
+    if (activeTab === "intake") return <Intake apiBase={API_BASE} />;
+    if (activeTab === "session") return <Session apiBase={API_BASE} />;
+    if (activeTab === "dashboard") return <Dashboard apiBase={API_BASE} />;
+    return null;
+  };
 
   return (
     <div className="app">
-      {/* HEADER */}
       <header className="app-header">
-        {/* 👉 로고 전체를 Link로 감싸서 클릭 시 루트(/)로 이동 */}
-        <Link to="/" className="app-logo" style={{ textDecoration: "none", color: "inherit" }}>
-          <span className="logo-mark">Ψ</span>
-          <div>
-            <div className="logo-title">PTSD Digital Exposure Therapy</div>
-            <div className="logo-sub">LLM-based Adaptive Story Platform</div>
+        <div className="app-header-inner">
+          {/* 로고 클릭 → Intake(메인)으로 */}
+          <div
+            className="app-logo"
+            onClick={() => setActiveTab("intake")}
+            style={{ cursor: "pointer" }}
+          >
+            <div className="logo-icon">Ψ</div>
+            <div className="logo-text">
+              <div className="logo-title">PTSD Digital Exposure Therapy</div>
+              <div className="logo-sub">
+                LLM-based Adaptive Story Platform
+              </div>
+            </div>
           </div>
-        </Link>
 
-        <nav className="app-nav">
-          <NavLink to="/intake" currentPath={location.pathname}>
-            Intake
-          </NavLink>
-          <NavLink to="/session" currentPath={location.pathname}>
-            Session
-          </NavLink>
-          <NavLink to="/dashboard" currentPath={location.pathname}>
-            Dashboard
-          </NavLink>
-        </nav>
+          <nav className="app-nav">
+            <button
+              className={
+                "nav-link " +
+                (activeTab === "intake" ? "nav-link-active" : "")
+              }
+              onClick={() => setActiveTab("intake")}
+            >
+              Intake
+            </button>
+            <button
+              className={
+                "nav-link " +
+                (activeTab === "session" ? "nav-link-active" : "")
+              }
+              onClick={() => setActiveTab("session")}
+            >
+              Session
+            </button>
+            <button
+              className={
+                "nav-link " +
+                (activeTab === "dashboard" ? "nav-link-active" : "")
+              }
+              onClick={() => setActiveTab("dashboard")}
+            >
+              Dashboard
+            </button>
+          </nav>
+        </div>
       </header>
 
-      <div className="api-status">{apiStatus}</div>
-
       <main className="app-main">
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <div>
-                <h2>PTSD LLM-Based Digital Exposure Therapy</h2>
-                <p>
-                  This experimental platform lets you write a trauma narrative, generate
-                  controlled exposure stories with an LLM, and track your SUDS scores
-                  before and after each story. Over time, story intensity is adjusted
-                  based on your responses.
-                </p>
-                <ul>
-                  <li>① <b>Intake</b>: Save trauma narrative + show SUDS scale</li>
-                  <li>② <b>Session</b>: Pre-SUDS → generate story → Post-SUDS</li>
-                  <li>③ <b>Dashboard</b>: Visualize SUDS trends over sessions</li>
-                </ul>
-              </div>
-            }
-          />
-          <Route path="/intake" element={<Intake apiBase={API_BASE} />} />
-          <Route path="/session" element={<Session apiBase={API_BASE} />} />
-          <Route path="/dashboard" element={<Dashboard apiBase={API_BASE} />} />
-        </Routes>
+        <section>
+          <div className="status-row">
+            <span className="badge-pill">Prototype</span>
+            <span
+              className={
+                "badge-status " +
+                (backendStatus === "ok"
+                  ? "badge-status-ok"
+                  : backendStatus === "error"
+                  ? "badge-status-error"
+                  : "badge-status-neutral")
+              }
+            >
+              {backendStatus === "ok"
+                ? "Backend connected"
+                : backendStatus === "error"
+                ? "Backend error"
+                : "Checking backend..."}
+            </span>
+          </div>
+
+          {renderTab()}
+        </section>
       </main>
     </div>
-  );
-}
-
-function NavLink({ to, currentPath, children }) {
-  const active = currentPath === to;
-  return (
-    <Link
-      to={to}
-      className={active ? "nav-link nav-link-active" : "nav-link"}
-    >
-      {children}
-    </Link>
   );
 }
 
