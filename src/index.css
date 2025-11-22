@@ -53,6 +53,62 @@ body {
   gap: 10px;
 }
 
+/* Layout */
+.app-wrapper {
+  color: #e5e7eb;
+  font-family: Inter, sans-serif;
+}
+
+.top-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 28px;
+  background: #0f172a;
+  border-bottom: 1px solid #1e293b;
+}
+
+.nav-left {
+  cursor: pointer;
+}
+
+.nav-left h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.nav-sub {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.nav-links button {
+  margin-left: 12px;
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  color: #e2e8f0;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.nav-links button.active,
+.nav-links button:hover {
+  background: #475569;
+}
+
+.page-container {
+  padding: 32px;
+}
+
+/* Home page */
+.home-container {
+  text-align: center;
+  margin-top: 60px;
+}
+
+
 .logo-icon {
   width: 32px;
   height: 32px;
