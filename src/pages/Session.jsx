@@ -1,27 +1,57 @@
-// src/pages/Session.jsx
-import { useState } from "react";
+// src/Session.jsx
+import { useState, useEffect } from "react";
+import SudsReferenceTable from "./SudsReferenceTable";
 
 function Session({ apiBase }) {
   const [userId, setUserId] = useState("");
-  const [intensity, setIntensity] = useState(0.7);
+  const [sudsScale, setSudsScale] = useState(null);
 
-  const [preSuds, setPreSuds] = useState("");
-  const [postSuds, setPostSuds] = useState("");
+  const [preSuds, setPreSuds] = useState(30);
+  const [postSuds, setPostSuds] = useState(30);
+  const [intensity, setIntensity] = useState(0.7);
 
   const [sessionId, setSessionId] = useState(null);
   const [story, setStory] = useState("");
   const [nextIntensity, setNextIntensity] = useState(null);
 
-  const [error, setError] = useState("");
+  const [hasReadStory, setHasReadStory] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
 
-  // 1) Pre-SUDS + intensity 보내서 story 생성
-  const startStory = async () => {
-    setError("");
-    setStatusMsg("");
+  useEffect(() => {
+    fetch(`${apiBase}/api/suds/scale`)
+      .then((res) => res.json())
+      .then((data) => setSudsScale(data.scale))
+      .catch(() => {});
+  }, [apiBase]);
 
-    if (!userId || preSuds === "") {
-      setError("User ID and pre-session SUDS are required.");
+  const renderScaleHint = (value) => {
+    if (!sudsScale) return null;
+    const scores = Object.keys(sudsScale).map((k) => Number(k));
+    let closest = scores[0];
+    let minDiff = Math.abs(value - closest);
+    for (const s of scores) {
+      const diff = Math.abs(value - s);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closest = s;
+      }
+    }
+    return (
+      <p className="help-text">
+        {closest}점 근처 설명: {sudsScale[closest]}
+      </p>
+    );
+  };
+
+  const startSession = async () => {
+    setStatusMsg("");
+    setStory("");
+    setSessionId(null);
+    setNextIntensity(null);
+    setHasReadStory(false);
+
+    if (!userId) {
+      setStatusMsg("User ID를 입력해주세요.");
       return;
     }
 
@@ -31,37 +61,32 @@ function Session({ apiBase }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: userId,
-          suds_pre: Number(preSuds),
-          intensity: Number(intensity),
+          suds_pre: preSuds,
+          intensity,
         }),
       });
 
       if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || "Failed to start story session");
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "Failed to start story session");
       }
 
       const data = await res.json();
-      setSessionId(data.session_id);
       setStory(data.story);
-      setStatusMsg(`Session started. Intensity used: ${data.intensity_used.toFixed(2)}`);
-    } catch (e) {
-      setError("Failed to start story session. Check backend / network.");
-      console.error(e);
+      setSessionId(data.session_id);
+      setStatusMsg("스토리가 생성되었습니다. 천천히 읽어 주세요.");
+    } catch (err) {
+      setStatusMsg(`❌ 세션 시작에 실패했습니다: ${err.message}`);
     }
   };
 
-  // 2) story 읽은 후 post SUDS 기록 + 다음 intensity 추천받기
   const submitPostSuds = async () => {
-    setError("");
-    setStatusMsg("");
-
     if (!sessionId) {
-      setError("No active session. Generate a story first.");
+      setStatusMsg("먼저 스토리를 생성해주세요.");
       return;
     }
-    if (postSuds === "") {
-      setError("Post-session SUDS is required.");
+    if (!hasReadStory) {
+      setStatusMsg("이야기를 모두 읽었다는 체크박스를 먼저 선택해주세요.");
       return;
     }
 
@@ -71,109 +96,173 @@ function Session({ apiBase }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           session_id: sessionId,
-          suds_score: Number(postSuds),
+          suds_score: postSuds,
         }),
       });
 
       if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || "Failed to submit post SUDS");
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "Failed to submit post-SUDS");
       }
 
       const data = await res.json();
       setNextIntensity(data.new_intensity);
-      setIntensity(data.new_intensity);
-      setStatusMsg("Post-SUDS recorded. Intensity updated for next session.");
-    } catch (e) {
-      setError("Failed to record post SUDS. Check backend / network.");
-      console.error(e);
+      setStatusMsg("Post-SUDS가 저장되었습니다.");
+    } catch (err) {
+      setStatusMsg(`❌ Post-SUDS 전송에 실패했습니다: ${err.message}`);
     }
   };
 
   return (
     <div>
       <h2>Session – Exposure Story</h2>
-      <p>
-        Enter your <b>User ID</b>, rate your distress (pre-SUDS), and generate an exposure
-        story. After reading, enter post-SUDS to adapt the next session&apos;s intensity.
+      <p className="page-intro">
+        세션마다 현재의 SUDS 점수를 기록한 후, 트라우마 기반 노출 스토리를 읽고
+        다시 SUDS를 평가합니다. 이 정보는 다음 세션의 intensity를 조정하는 데 사용됩니다.
       </p>
 
       <div className="card">
-        <label>
-          User ID
+        <div className="field-group">
+          <label>User ID</label>
           <input
             type="text"
             value={userId}
+            placeholder="예: 33"
             onChange={(e) => setUserId(e.target.value)}
-            placeholder="e.g. user123"
           />
-        </label>
+        </div>
 
-        <label>
-          Pre-session SUDS (0–100)
+        <div className="field-group">
+          <label>1. Pre-session SUDS (0–100)</label>
+          <p className="help-text">
+            지금 이 순간의 불안/긴장 정도를 0–100 사이 숫자로 표시해주세요.
+          </p>
+
           <input
-            type="number"
+            type="range"
             min="0"
             max="100"
             value={preSuds}
-            onChange={(e) => setPreSuds(e.target.value)}
+            onChange={(e) => setPreSuds(Number(e.target.value))}
           />
-        </label>
+          <div className="range-labels">
+            <span>0</span>
+            <span>100</span>
+          </div>
 
-        <label>
-          Story intensity (LLM temperature)
-          <input
-            type="range"
-            min="0.2"
-            max="1.5"
-            step="0.05"
-            value={intensity}
-            onChange={(e) => setIntensity(Number(e.target.value))}
-          />
-          <span style={{ marginLeft: 8 }}>{intensity.toFixed(2)}</span>
-        </label>
-
-        <button onClick={startStory}>Generate Story</button>
-      </div>
-
-      {story && (
-        <div className="card" style={{ marginTop: "1.5rem" }}>
-          <h3>Exposure Story</h3>
-          <p style={{ whiteSpace: "pre-wrap" }}>{story}</p>
-
-          <hr style={{ margin: "1rem 0" }} />
-
-          <label>
-            Post-session SUDS (0–100)
+          <div className="range-number">
             <input
               type="number"
               min="0"
               max="100"
-              value={postSuds}
-              onChange={(e) => setPostSuds(e.target.value)}
+              value={preSuds}
+              onChange={(e) => setPreSuds(Number(e.target.value))}
             />
+            <span>점</span>
+          </div>
+
+          {renderScaleHint(preSuds)}
+
+          <div className="suds-help-block">
+            <details>
+              <summary>이 숫자들은 어떤 의미인가요? (SUDS 예시 표 열기)</summary>
+              <SudsReferenceTable />
+            </details>
+          </div>
+        </div>
+
+        <div className="field-group">
+          <label>2. Story Intensity (LLM temperature)</label>
+          <p className="help-text">
+            현재 세션에서 사용할 노출 스토리의 강도입니다. 숫자가 높을수록 더
+            자유롭고 강한 스토리가 생성됩니다.
+          </p>
+
+          <input
+            type="range"
+            min="0.2"
+            max="1.5"
+            step="0.1"
+            value={intensity}
+            onChange={(e) => setIntensity(Number(e.target.value))}
+          />
+          <p className="help-text">
+            현재 intensity: <b>{intensity.toFixed(2)}</b>
+          </p>
+        </div>
+
+        <button type="button" className="primary-btn" onClick={startSession}>
+          Generate Story
+        </button>
+
+        {statusMsg && <p className="status-text">{statusMsg}</p>}
+      </div>
+
+      {story && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <h3>3. Exposure Story</h3>
+          <p className="story-text">{story}</p>
+
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              checked={hasReadStory}
+              onChange={(e) => setHasReadStory(e.target.checked)}
+            />
+            <span>이야기를 처음부터 끝까지 읽었습니다.</span>
           </label>
+        </div>
+      )}
 
-          <button onClick={submitPostSuds}>Submit Post-SUDS &amp; Update Intensity</button>
+      {story && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <div className="field-group">
+            <label>4. Post-session SUDS (0–100)</label>
+            <p className="help-text">
+              이야기를 읽고 난 직후, 지금의 불안/긴장 정도를 0–100으로 다시 평가해주세요.
+            </p>
 
-          {nextIntensity !== null && (
-            <p style={{ marginTop: "0.5rem" }}>
-              ➡ Recommended intensity for next session:{" "}
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={postSuds}
+              onChange={(e) => setPostSuds(Number(e.target.value))}
+            />
+            <div className="range-labels">
+              <span>0</span>
+              <span>100</span>
+            </div>
+
+            <div className="range-number">
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={postSuds}
+                onChange={(e) => setPostSuds(Number(e.target.value))}
+              />
+              <span>점</span>
+            </div>
+
+            {renderScaleHint(postSuds)}
+          </div>
+
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={submitPostSuds}
+          >
+            Save Post-SUDS
+          </button>
+
+          {nextIntensity && (
+            <p className="help-text" style={{ marginTop: 8 }}>
+              다음 세션 추천 intensity:{" "}
               <b>{nextIntensity.toFixed(2)}</b>
             </p>
           )}
         </div>
-      )}
-
-      {statusMsg && (
-        <p style={{ marginTop: "1rem", color: "#7dd3fc" }}>
-          {statusMsg}
-        </p>
-      )}
-      {error && (
-        <p style={{ marginTop: "1rem", color: "#fca5a5" }}>
-          ❌ {error}
-        </p>
       )}
     </div>
   );
