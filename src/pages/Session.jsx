@@ -1,4 +1,4 @@
-// src/Session.jsx
+// src/pages/Session.jsx
 import { useState, useEffect } from "react";
 import SudsReferenceTable from "./SudsReferenceTable";
 
@@ -38,7 +38,7 @@ function Session({ apiBase }) {
     }
     return (
       <p className="help-text">
-        {closest}점 근처 설명: {sudsScale[closest]}
+        Approximate description around {closest}: {sudsScale[closest]}
       </p>
     );
   };
@@ -51,7 +51,7 @@ function Session({ apiBase }) {
     setHasReadStory(false);
 
     if (!userId) {
-      setStatusMsg("User ID를 입력해주세요.");
+      setStatusMsg("Please enter your User ID.");
       return;
     }
 
@@ -74,19 +74,19 @@ function Session({ apiBase }) {
       const data = await res.json();
       setStory(data.story);
       setSessionId(data.session_id);
-      setStatusMsg("스토리가 생성되었습니다. 천천히 읽어 주세요.");
+      setStatusMsg("Exposure story generated. Please read it carefully.");
     } catch (err) {
-      setStatusMsg(`❌ 세션 시작에 실패했습니다: ${err.message}`);
+      setStatusMsg(`❌ Failed to start session: ${err.message}`);
     }
   };
 
   const submitPostSuds = async () => {
     if (!sessionId) {
-      setStatusMsg("먼저 스토리를 생성해주세요.");
+      setStatusMsg("Please generate a story first.");
       return;
     }
     if (!hasReadStory) {
-      setStatusMsg("이야기를 모두 읽었다는 체크박스를 먼저 선택해주세요.");
+      setStatusMsg("Please confirm that you have read the story.");
       return;
     }
 
@@ -107,9 +107,9 @@ function Session({ apiBase }) {
 
       const data = await res.json();
       setNextIntensity(data.new_intensity);
-      setStatusMsg("Post-SUDS가 저장되었습니다.");
+      setStatusMsg("Post-SUDS score saved.");
     } catch (err) {
-      setStatusMsg(`❌ Post-SUDS 전송에 실패했습니다: ${err.message}`);
+      setStatusMsg(`❌ Failed to submit post-SUDS: ${err.message}`);
     }
   };
 
@@ -117,8 +117,10 @@ function Session({ apiBase }) {
     <div>
       <h2>Session – Exposure Story</h2>
       <p className="page-intro">
-        세션마다 현재의 SUDS 점수를 기록한 후, 트라우마 기반 노출 스토리를 읽고
-        다시 SUDS를 평가합니다. 이 정보는 다음 세션의 intensity를 조정하는 데 사용됩니다.
+        In each session, you first record your pre-session SUDS, then read an
+        exposure story based on your trauma narrative, and finally record your
+        post-session SUDS. This information is used to adapt the intensity of
+        the next session.
       </p>
 
       <div className="card">
@@ -127,7 +129,7 @@ function Session({ apiBase }) {
           <input
             type="text"
             value={userId}
-            placeholder="예: 33"
+            placeholder="e.g., 33"
             onChange={(e) => setUserId(e.target.value)}
           />
         </div>
@@ -135,7 +137,8 @@ function Session({ apiBase }) {
         <div className="field-group">
           <label>1. Pre-session SUDS (0–100)</label>
           <p className="help-text">
-            지금 이 순간의 불안/긴장 정도를 0–100 사이 숫자로 표시해주세요.
+            Rate your current level of distress right now on a scale from 0 to
+            100.
           </p>
 
           <input
@@ -158,14 +161,14 @@ function Session({ apiBase }) {
               value={preSuds}
               onChange={(e) => setPreSuds(Number(e.target.value))}
             />
-            <span>점</span>
+            <span>pts</span>
           </div>
 
           {renderScaleHint(preSuds)}
 
           <div className="suds-help-block">
             <details>
-              <summary>이 숫자들은 어떤 의미인가요? (SUDS 예시 표 열기)</summary>
+              <summary>What do these numbers mean? (Open SUDS guide)</summary>
               <SudsReferenceTable />
             </details>
           </div>
@@ -174,8 +177,8 @@ function Session({ apiBase }) {
         <div className="field-group">
           <label>2. Story Intensity (LLM temperature)</label>
           <p className="help-text">
-            현재 세션에서 사용할 노출 스토리의 강도입니다. 숫자가 높을수록 더
-            자유롭고 강한 스토리가 생성됩니다.
+            This controls how intense/creative the exposure story will be. A
+            higher value leads to a looser and often more intense story.
           </p>
 
           <input
@@ -187,7 +190,7 @@ function Session({ apiBase }) {
             onChange={(e) => setIntensity(Number(e.target.value))}
           />
           <p className="help-text">
-            현재 intensity: <b>{intensity.toFixed(2)}</b>
+            Current intensity: <b>{intensity.toFixed(2)}</b>
           </p>
         </div>
 
@@ -209,7 +212,7 @@ function Session({ apiBase }) {
               checked={hasReadStory}
               onChange={(e) => setHasReadStory(e.target.checked)}
             />
-            <span>이야기를 처음부터 끝까지 읽었습니다.</span>
+            <span>I have read the story from beginning to end.</span>
           </label>
         </div>
       )}
@@ -219,7 +222,8 @@ function Session({ apiBase }) {
           <div className="field-group">
             <label>4. Post-session SUDS (0–100)</label>
             <p className="help-text">
-              이야기를 읽고 난 직후, 지금의 불안/긴장 정도를 0–100으로 다시 평가해주세요.
+              Immediately after reading the story, rate your current level of
+              distress again on a scale from 0 to 100.
             </p>
 
             <input
@@ -242,7 +246,7 @@ function Session({ apiBase }) {
                 value={postSuds}
                 onChange={(e) => setPostSuds(Number(e.target.value))}
               />
-              <span>점</span>
+              <span>pts</span>
             </div>
 
             {renderScaleHint(postSuds)}
@@ -258,7 +262,7 @@ function Session({ apiBase }) {
 
           {nextIntensity && (
             <p className="help-text" style={{ marginTop: 8 }}>
-              다음 세션 추천 intensity:{" "}
+              Recommended intensity for the next session:{" "}
               <b>{nextIntensity.toFixed(2)}</b>
             </p>
           )}
