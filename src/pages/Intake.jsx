@@ -1,27 +1,19 @@
-// src/Intake.jsx
-import { useState, useEffect } from "react";
+// src/pages/Intake.jsx
+import { useState } from "react";
 import SudsReferenceTable from "./SudsReferenceTable";
 
 function Intake({ apiBase }) {
   const [userId, setUserId] = useState("");
   const [trauma, setTrauma] = useState("");
   const [keywords, setKeywords] = useState([]);
-  const [sudsScale, setSudsScale] = useState(null);
   const [msg, setMsg] = useState("");
-
-  useEffect(() => {
-    fetch(`${apiBase}/api/suds/scale`)
-      .then((res) => res.json())
-      .then((data) => setSudsScale(data.scale))
-      .catch(() => {});
-  }, [apiBase]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMsg("");
 
     if (!userId || !trauma.trim()) {
-      setMsg("User ID와 트라우마 서술을 모두 입력해주세요.");
+      setMsg("Please enter both your User ID and trauma narrative.");
       return;
     }
 
@@ -39,9 +31,9 @@ function Intake({ apiBase }) {
 
       const data = await res.json();
       setKeywords(data.keywords || []);
-      setMsg("트라우마 서술이 저장되었고, 키워드가 추출되었습니다.");
+      setMsg("Trauma narrative saved and keywords extracted.");
     } catch (err) {
-      setMsg(`❌ 저장 중 오류가 발생했습니다: ${err.message}`);
+      setMsg(`❌ Error while saving trauma: ${err.message}`);
     }
   };
 
@@ -49,8 +41,9 @@ function Intake({ apiBase }) {
     <div>
       <h2>Intake – Trauma Narrative</h2>
       <p className="page-intro">
-        아래에 본인의 트라우마 경험을 자유롭게 서술해주세요. 입력한 내용은 노출 스토리를
-        생성하기 위한 키워드 추출에만 사용됩니다.
+        Please describe your trauma experience in your own words. The text will
+        only be used to extract keywords and generate controlled exposure
+        stories.
       </p>
 
       <form className="card" onSubmit={handleSubmit}>
@@ -59,7 +52,7 @@ function Intake({ apiBase }) {
           <input
             type="text"
             value={userId}
-            placeholder="예: 33"
+            placeholder="e.g., 33"
             onChange={(e) => setUserId(e.target.value)}
           />
         </div>
@@ -69,7 +62,7 @@ function Intake({ apiBase }) {
           <textarea
             rows={6}
             value={trauma}
-            placeholder="자신의 언어로 트라우마 경험을 간단히 설명해주세요."
+            placeholder="Write a brief description of your trauma experience."
             onChange={(e) => setTrauma(e.target.value)}
           />
         </div>
@@ -85,7 +78,8 @@ function Intake({ apiBase }) {
         <div className="card" style={{ marginTop: 16 }}>
           <h3>Extracted Keywords</h3>
           <p className="help-text">
-            이 키워드들은 이후 세션에서 노출 스토리를 생성할 때 사용됩니다.
+            These keywords will be used later to generate exposure stories that
+            are tailored to this narrative.
           </p>
           <div className="chip-row">
             {keywords.map((kw) => (
@@ -98,25 +92,12 @@ function Intake({ apiBase }) {
       )}
 
       <div className="card" style={{ marginTop: 20 }}>
-        <h3>SUDS 점수 안내</h3>
+        <h3>SUDS Rating Guide</h3>
         <p className="help-text">
-          세션에서는 현재 느끼는 괴로움 정도를 0–100 점 SUDS로 표시하게 됩니다.
-          아래 표는 각 점수가 대략 어떤 느낌인지 설명합니다.
+          In sessions you will rate your current distress (SUDS) from 0 to 100.
+          The table below shows approximate descriptions for each range.
         </p>
         <SudsReferenceTable />
-
-        {sudsScale && (
-          <div className="suds-scale-raw">
-            <h4>Backend SUDS Scale (raw)</h4>
-            <ul>
-              {Object.entries(sudsScale).map(([score, desc]) => (
-                <li key={score}>
-                  <b>{score}</b> → {desc}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
       </div>
     </div>
   );
