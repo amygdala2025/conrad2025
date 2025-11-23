@@ -19,7 +19,7 @@ function Session({ apiBase }) {
   const [sudsScale, setSudsScale] = useState(null);
   const [showSudsModal, setShowSudsModal] = useState(false);
 
-  // Load backend SUDS scale (for hint text)
+  // 백엔드 SUDS 스케일 로드
   useEffect(() => {
     fetch(`${apiBase}/api/suds/scale`)
       .then((res) => res.json())
@@ -42,6 +42,9 @@ function Session({ apiBase }) {
     return `${closest}: ${sudsScale[closest]}`;
   };
 
+  // --------------------
+  // 스토리 세션 시작
+  // --------------------
   const startSession = async () => {
     setStatusMsg("");
     setStory("");
@@ -65,14 +68,22 @@ function Session({ apiBase }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: userId,
-          suds_pre: preSuds,
+          // 🔥 백엔드 StoryRequest와 이름 맞추기
+          pre_suds: preSuds,
           intensity,
         }),
       });
 
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Failed to start story session.");
+        const errJson = await res.json().catch(() => null);
+        console.error("story error", errJson);
+        const msg =
+          errJson && errJson.detail
+            ? typeof errJson.detail === "string"
+              ? errJson.detail
+              : JSON.stringify(errJson.detail)
+            : "Failed to start story session.";
+        throw new Error(msg);
       }
 
       const data = await res.json();
@@ -80,12 +91,19 @@ function Session({ apiBase }) {
       setSessionId(data.session_id);
       setStatusMsg("Exposure story generated. Please read it carefully.");
     } catch (err) {
-      setStatusMsg(`❌ Failed to start story session: ${err.message}`);
+      setStatusMsg(
+        `❌ Failed to start story session: ${
+          err && err.message ? err.message : String(err)
+        }`
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
+  // --------------------
+  // post-SUDS 저장
+  // --------------------
   const submitPost = async () => {
     setStatusMsg("");
 
@@ -108,20 +126,31 @@ function Session({ apiBase }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           session_id: sessionId,
-          suds_score: postSuds,
+          post_suds: postSuds,
         }),
       });
 
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Failed to submit post-SUDS.");
+        const errJson = await res.json().catch(() => null);
+        console.error("post-suds error", errJson);
+        const msg =
+          errJson && errJson.detail
+            ? typeof errJson.detail === "string"
+              ? errJson.detail
+              : JSON.stringify(errJson.detail)
+            : "Failed to submit post-SUDS.";
+        throw new Error(msg);
       }
 
       const data = await res.json();
-      setNextIntensity(data.new_intensity);
+      setNextIntensity(data.next_intensity);
       setStatusMsg("Post-session SUDS saved.");
     } catch (err) {
-      setStatusMsg(`❌ Failed to submit post-SUDS: ${err.message}`);
+      setStatusMsg(
+        `❌ Failed to submit post-SUDS: ${
+          err && err.message ? err.message : String(err)
+        }`
+      );
     }
   };
 
@@ -136,7 +165,7 @@ function Session({ apiBase }) {
           future stories based on how your SUDS scores change over time.
         </p>
 
-        {/* SUDS quick help link */}
+        {/* SUDS 도움말 링크 */}
         <button
           type="button"
           className="inline-link-btn"
@@ -145,7 +174,7 @@ function Session({ apiBase }) {
           What is SUDS? (open reference table)
         </button>
 
-        {/* Session controls */}
+        {/* 세션 입력 카드 */}
         <div className="card" style={{ marginTop: 12 }}>
           <div className="field-group">
             <label>User ID</label>
@@ -228,7 +257,7 @@ function Session({ apiBase }) {
           {statusMsg && <p className="status-text">{statusMsg}</p>}
         </div>
 
-        {/* Story display */}
+        {/* 스토리 출력 */}
         {story && (
           <div className="card">
             <h3>3. Exposure Story</h3>
@@ -245,7 +274,7 @@ function Session({ apiBase }) {
           </div>
         )}
 
-        {/* Post-SUDS input */}
+        {/* post-SUDS 입력 */}
         {story && (
           <div className="card">
             <div className="field-group">
