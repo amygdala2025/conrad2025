@@ -1,49 +1,59 @@
+// src/pages/Dashboard.jsx
 import { useState } from "react";
-import { Line } from "react-chartjs-2";
-import "chart.js/auto";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 function Dashboard({ apiBase }) {
-  const [userId, setUserId] = useState(localStorage.getItem("ptsd_user_id") || "");
-  const [history, setHistory] = useState([]);
-  const [selectedStory, setSelectedStory] = useState(null);
+  const [userId, setUserId] = useState(
+    localStorage.getItem("ptsd_user_id") || ""
+  );
+  const [sessions, setSessions] = useState([]); // history에서 받은 리스트
+  const [selectedSession, setSelectedSession] = useState(null);
   const [statusMsg, setStatusMsg] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingStory, setLoadingStory] = useState(false);
 
-  const loadDashboard = async () => {
+  const token = localStorage.getItem("ptsd_token") || "";
+
+  // Dashboard 데이터 로드 (SUDS history)
+  const loadData = async () => {
+    setStatusMsg("");
+    setSessions([]);
+    setSelectedSession(null);
+
     if (!userId) {
-      setStatusMsg("❌ Please enter your User ID.");
+      setStatusMsg("User ID를 입력해주세요.");
       return;
     }
-
-    const token = localStorage.getItem("ptsd_token");
     if (!token) {
-      setStatusMsg("❌ No auth token found. Complete intake first.");
+      setStatusMsg("인증 토큰이 없습니다. Intake를 먼저 완료해주세요.");
       return;
     }
 
     setLoading(true);
-    setStatusMsg("");
-
     try {
-      const res = await fetch(
-        `${apiBase}/api/suds/history/${encodeURIComponent(userId)}`,
-        {
-          headers: {
-            "X-Auth-Token": token, // ★ 토큰 인증
-          },
-        }
-      );
-
+      const res = await fetch(`${apiBase}/api/suds/history/${userId}`, {
+        headers: { "X-Auth-Token": token },
+      });
       if (!res.ok) {
-        const errJson = await res.json().catch(() => null);
-        const msg =
-          errJson?.detail || `HTTP ${res.status} ${res.statusText}`;
-        throw new Error(msg);
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.detail || `HTTP ${res.status}`);
       }
-
       const data = await res.json();
-      setHistory(data.history || []);
-      setStatusMsg("✔ Dashboard loaded.");
+      const list = data.history || [];
+      // 최신이 위로 오도록 백엔드에서 정렬되어 있음
+      setSessions(list);
+      if (list.length > 0) {
+        await loadSessionDetail(list[0].session_id); // 가장 최근 세션 선택
+      }
     } catch (err) {
       setStatusMsg(`❌ Failed to load data: ${err.message}`);
     } finally {
@@ -51,107 +61,175 @@ function Dashboard({ apiBase }) {
     }
   };
 
-  // -----------------------------------------
-  // Prepare data for Chart.js (Pre/Post SUDS)
-  // -----------------------------------------
-
-  const chartData = {
-    labels: history.map((h) => new Date(h.timestamp).toLocaleString()),
-    datasets: [
-      {
-        label: "Pre-SUDS",
-        borderColor: "#60a5fa",
-        backgroundColor: "rgba(96,165,250,0.2)",
-        data: history.map((h) => h.pre_suds),
-      },
-      {
-        label: "Post-SUDS",
-        borderColor: "#f472b6",
-        backgroundColor: "rgba(244,114,182,0.2)",
-        data: history.map((h) => h.post_suds ?? null),
-      },
-    ],
+  // 개별 세션 상세(스토리 포함) 로드
+  const loadSessionDetail = async (sessionId) => {
+    if (!token) return;
+    setLoadingStory(true);
+    try {
+      const res = await fetch(`${apiBase}/api/sessions/${sessionId}`, {
+        headers: { "X-Auth-Token": token },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.detail || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setSelectedSession(data);
+    } catch (err) {
+      setSelectedSession({
+        session_id: sessionId,
+        story: "",
+        error: err.message,
+      });
+    } finally {
+      setLoadingStory(false);
+    }
   };
+
+  // 차트용 데이터 (시간 순 정렬)
+  const chartData = sessions
+    .slice()
+    .reverse()
+    .map((s) => ({
+      date: new Date(s.timestamp).toLocaleString(),
+      pre: s.pre_suds,
+      post: s.post_suds,
+    }));
 
   return (
     <div>
       <h2>Dashboard</h2>
       <p className="page-intro">
-        Visualize pre- and post-session SUDS trends and review previous exposure stories.
+        날짜별 Pre / Post SUDS 변화와 각 세션에서 생성된 노출 스토리를 확인할 수
+        있습니다.
       </p>
 
-      {/* -------------------- */}
-      {/* Load Controls        */}
-      {/* -------------------- */}
       <div className="card">
-        <div className="field-group">
-          <label>User ID</label>
-          <input
-            type="text"
-            value={userId}
-            placeholder="0001"
-            onChange={(e) => setUserId(e.target.value)}
-          />
+        <div className="field-row">
+          <div className="field-group" style={{ flex: 1 }}>
+            <label>User ID</label>
+            <input
+              type="text"
+              value={userId}
+              placeholder="예: 0001"
+              onChange={(e) => setUserId(e.target.value)}
+            />
+          </div>
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={loadData}
+            disabled={loading}
+          >
+            {loading ? "Loading..." : "Load Dashboard"}
+          </button>
         </div>
-
-        <button className="primary-btn" onClick={loadDashboard}>
-          Load Dashboard
-        </button>
 
         {statusMsg && <p className="status-text">{statusMsg}</p>}
       </div>
 
-      {/* -------------------- */}
-      {/* Charts + Session List */}
-      {/* -------------------- */}
-      {history.length > 0 && (
-        <div className="card" style={{ marginTop: "20px" }}>
-          <h3>SUDS Trend Over Time</h3>
-
-          <div className="chart-box">
-            <Line data={chartData} />
+      {sessions.length > 0 && (
+        <>
+          {/* SUDS 트렌드 차트 */}
+          <div className="card" style={{ marginTop: 16 }}>
+            <h3>SUDS Trend by Session</h3>
+            <div style={{ width: "100%", height: 320 }}>
+              <ResponsiveContainer>
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis domain={[0, 100]} />
+                  <Tooltip />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="pre"
+                    name="Pre-SUDS"
+                    stroke="#6366f1"
+                    dot={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="post"
+                    name="Post-SUDS"
+                    stroke="#22c55e"
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
-          <h3 style={{ marginTop: "30px" }}>Session List</h3>
-          <ul className="session-list">
-            {history.map((session) => (
-              <li
-                key={session.session_id}
-                className="session-item"
-                onClick={() => setSelectedStory(session)}
-              >
-                <div>
-                  <b>{new Date(session.timestamp).toLocaleString()}</b>
-                  <br />
-                  Pre: {session.pre_suds} / Post:{" "}
-                  {session.post_suds !== null ? session.post_suds : "—"}
-                </div>
-                <div className="session-item-arrow">›</div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+          {/* 세션 리스트 + 스토리 상세 */}
+          <div
+            className="card"
+            style={{
+              marginTop: 16,
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1.1fr) minmax(0, 1.6fr)",
+              gap: 16,
+            }}
+          >
+            <div className="session-list">
+              <h3>Session List</h3>
+              <ul>
+                {sessions.map((s) => (
+                  <li
+                    key={s.session_id}
+                    className={
+                      "session-item" +
+                      (selectedSession &&
+                      selectedSession.session_id === s.session_id
+                        ? " session-item-active"
+                        : "")
+                    }
+                    onClick={() => loadSessionDetail(s.session_id)}
+                  >
+                    <div className="session-item-main">
+                      <span>{new Date(s.timestamp).toLocaleString()}</span>
+                    </div>
+                    <div className="session-item-sub">
+                      Pre: {s.pre_suds} / Post:{" "}
+                      {s.post_suds !== null ? s.post_suds : "-"}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
 
-      {/* -------------------- */}
-      {/* Story Viewer Modal   */}
-      {/* -------------------- */}
-      {selectedStory && (
-        <div className="modal-overlay" onClick={() => setSelectedStory(null)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <h3>Exposure Story</h3>
-            <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
-              {selectedStory.story || "(story missing)"}
-            </p>
-            <button
-              className="primary-btn"
-              style={{ marginTop: "20px" }}
-              onClick={() => setSelectedStory(null)}
-            >
-              Close
-            </button>
+            <div className="session-detail">
+              <h3>Exposure Story</h3>
+              {loadingStory && <p className="help-text">Loading story…</p>}
+              {!loadingStory && selectedSession ? (
+                <>
+                  <p className="help-text">
+                    {new Date(
+                      selectedSession.created_at || sessions[0].timestamp
+                    ).toLocaleString()}
+                    <br />
+                    Pre: {selectedSession.pre_suds} / Post:{" "}
+                    {selectedSession.post_suds !== null
+                      ? selectedSession.post_suds
+                      : "-"}
+                  </p>
+                  <div className="story-box">
+                    {selectedSession.story ? (
+                      <p className="story-text">{selectedSession.story}</p>
+                    ) : (
+                      <p className="story-text">(story missing)</p>
+                    )}
+                  </div>
+                </>
+              ) : (
+                !loadingStory && (
+                  <p className="help-text">
+                    왼쪽에서 보고 싶은 세션을 선택하세요.
+                  </p>
+                )
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
