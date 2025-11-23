@@ -1,170 +1,157 @@
-// src/pages/Dashboard.jsx
 import { useState } from "react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts";
+import { Line } from "react-chartjs-2";
+import "chart.js/auto";
 
 function Dashboard({ apiBase }) {
-  const [userId, setUserId] = useState("");
-  const [sessions, setSessions] = useState([]);
-  const [selectedSessionId, setSelectedSessionId] = useState(null);
+  const [userId, setUserId] = useState(localStorage.getItem("ptsd_user_id") || "");
+  const [history, setHistory] = useState([]);
+  const [selectedStory, setSelectedStory] = useState(null);
   const [statusMsg, setStatusMsg] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const loadData = async () => {
-    setStatusMsg("");
-    setSessions([]);
-    setSelectedSessionId(null);
-
+  const loadDashboard = async () => {
     if (!userId) {
-      setStatusMsg("Please enter a User ID.");
+      setStatusMsg("❌ Please enter your User ID.");
       return;
     }
 
+    const token = localStorage.getItem("ptsd_token");
+    if (!token) {
+      setStatusMsg("❌ No auth token found. Complete intake first.");
+      return;
+    }
+
+    setLoading(true);
+    setStatusMsg("");
+
     try {
-      const res = await fetch(`${apiBase}/api/dashboard/${userId}`);
-      if (!res.ok) throw new Error("Dashboard API request failed");
-      const data = await res.json();
-      const list = data.sessions || [];
-      setSessions(list);
-      if (list.length > 0) {
-        setSelectedSessionId(list[list.length - 1].session_id);
+      const res = await fetch(
+        `${apiBase}/api/suds/history/${encodeURIComponent(userId)}`,
+        {
+          headers: {
+            "X-Auth-Token": token, // ★ 토큰 인증
+          },
+        }
+      );
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        const msg =
+          errJson?.detail || `HTTP ${res.status} ${res.statusText}`;
+        throw new Error(msg);
       }
+
+      const data = await res.json();
+      setHistory(data.history || []);
+      setStatusMsg("✔ Dashboard loaded.");
     } catch (err) {
       setStatusMsg(`❌ Failed to load data: ${err.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const chartData = sessions.map((s) => ({
-    date: new Date(s.created_at).toLocaleDateString(),
-    pre: s.suds_pre,
-    post: s.suds_post,
-  }));
+  // -----------------------------------------
+  // Prepare data for Chart.js (Pre/Post SUDS)
+  // -----------------------------------------
 
-  const selected =
-    sessions.find((s) => s.session_id === selectedSessionId) || null;
+  const chartData = {
+    labels: history.map((h) => new Date(h.timestamp).toLocaleString()),
+    datasets: [
+      {
+        label: "Pre-SUDS",
+        borderColor: "#60a5fa",
+        backgroundColor: "rgba(96,165,250,0.2)",
+        data: history.map((h) => h.pre_suds),
+      },
+      {
+        label: "Post-SUDS",
+        borderColor: "#f472b6",
+        backgroundColor: "rgba(244,114,182,0.2)",
+        data: history.map((h) => h.post_suds ?? null),
+      },
+    ],
+  };
 
   return (
     <div>
       <h2>Dashboard</h2>
       <p className="page-intro">
-        Visualize pre- and post-session SUDS scores over time and review the
-        exposure story content for each session.
+        Visualize pre- and post-session SUDS trends and review previous exposure stories.
       </p>
 
+      {/* -------------------- */}
+      {/* Load Controls        */}
+      {/* -------------------- */}
       <div className="card">
-        <div className="field-row">
-          <div className="field-group" style={{ flex: 1 }}>
-            <label>User ID</label>
-            <input
-              type="text"
-              value={userId}
-              placeholder="e.g., 33"
-              onChange={(e) => setUserId(e.target.value)}
-            />
-          </div>
-          <button type="button" className="primary-btn" onClick={loadData}>
-            Load Dashboard
-          </button>
+        <div className="field-group">
+          <label>User ID</label>
+          <input
+            type="text"
+            value={userId}
+            placeholder="0001"
+            onChange={(e) => setUserId(e.target.value)}
+          />
         </div>
+
+        <button className="primary-btn" onClick={loadDashboard}>
+          Load Dashboard
+        </button>
 
         {statusMsg && <p className="status-text">{statusMsg}</p>}
       </div>
 
-      {sessions.length > 0 && (
-        <>
-          <div className="card" style={{ marginTop: 16 }}>
-            <h3>SUDS Trend by Date</h3>
-            <div style={{ width: "100%", height: 320 }}>
-              <ResponsiveContainer>
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis domain={[0, 100]} />
-                  <Tooltip />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="pre"
-                    name="Pre-SUDS"
-                    stroke="#6366f1"
-                    dot={false}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="post"
-                    name="Post-SUDS"
-                    stroke="#22c55e"
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+      {/* -------------------- */}
+      {/* Charts + Session List */}
+      {/* -------------------- */}
+      {history.length > 0 && (
+        <div className="card" style={{ marginTop: "20px" }}>
+          <h3>SUDS Trend Over Time</h3>
+
+          <div className="chart-box">
+            <Line data={chartData} />
           </div>
 
-          <div
-            className="card"
-            style={{
-              marginTop: 16,
-              display: "grid",
-              gridTemplateColumns: "minmax(0, 1.1fr) minmax(0, 1.6fr)",
-              gap: 16,
-            }}
-          >
-            <div className="session-list">
-              <h3>Sessions</h3>
-              <ul>
-                {sessions.map((s) => (
-                  <li
-                    key={s.session_id}
-                    className={
-                      "session-item" +
-                      (s.session_id === selectedSessionId
-                        ? " session-item-active"
-                        : "")
-                    }
-                    onClick={() => setSelectedSessionId(s.session_id)}
-                  >
-                    <div className="session-item-main">
-                      <span>
-                        {new Date(s.created_at).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="session-item-sub">
-                      Pre: {s.suds_pre} / Post:{" "}
-                      {s.suds_post !== null ? s.suds_post : "-"}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
+          <h3 style={{ marginTop: "30px" }}>Session List</h3>
+          <ul className="session-list">
+            {history.map((session) => (
+              <li
+                key={session.session_id}
+                className="session-item"
+                onClick={() => setSelectedStory(session)}
+              >
+                <div>
+                  <b>{new Date(session.timestamp).toLocaleString()}</b>
+                  <br />
+                  Pre: {session.pre_suds} / Post:{" "}
+                  {session.post_suds !== null ? session.post_suds : "—"}
+                </div>
+                <div className="session-item-arrow">›</div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
-            <div className="session-detail">
-              <h3>Story</h3>
-              {selected ? (
-                <>
-                  <p className="help-text">
-                    {new Date(selected.created_at).toLocaleString()}
-                    <br />
-                    Pre: {selected.suds_pre} / Post:{" "}
-                    {selected.suds_post !== null ? selected.suds_post : "-"}
-                  </p>
-                  <p className="story-text">{selected.story}</p>
-                </>
-              ) : (
-                <p className="help-text">
-                  Select a session on the left to view its story.
-                </p>
-              )}
-            </div>
+      {/* -------------------- */}
+      {/* Story Viewer Modal   */}
+      {/* -------------------- */}
+      {selectedStory && (
+        <div className="modal-overlay" onClick={() => setSelectedStory(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h3>Exposure Story</h3>
+            <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
+              {selectedStory.story || "(story missing)"}
+            </p>
+            <button
+              className="primary-btn"
+              style={{ marginTop: "20px" }}
+              onClick={() => setSelectedStory(null)}
+            >
+              Close
+            </button>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
