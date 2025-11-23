@@ -914,19 +914,64 @@ input[type="range"] {
 /* 반응형 */
 
 @media (max-width: 768px) {
+  .app-shell {
+    padding: 12px;
+  }
+
   .app-header-inner {
     flex-direction: column;
     align-items: flex-start;
+    gap: 10px;
   }
 
-  .field-row {
-    flex-direction: column;
-    align-items: stretch;
+  .app-nav {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 8px;
+    flex-wrap: wrap;
   }
 
   .card {
     padding: 14px;
   }
+
+  .field-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .suds-card {
+    padding: 14px;
+  }
 }
 
-@media (max-
+@media (max-width: 480px) {
+  .app-shell {
+    padding: 8px;
+  }
+
+  .app-main {
+    padding-top: 12px;
+  }
+
+  .primary-btn,
+  .secondary-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .card,
+  .suds-card {
+    padding: 12px;
+  }
+
+  .app-header-title {
+    font-size: 16px;
+  }
+
+  .logo-sub {
+    font-size: 10px;
+  }
+}
+
