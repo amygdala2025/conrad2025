@@ -2,6 +2,12 @@ import { useState } from "react";
 import SudsModal from "./SudsModal";
 import SudsReferenceTable from "./SudsReferenceTable";
 
+// 안전하게 0–100 사이로 잘라주는 함수
+function clampSuds(value) {
+  const n = Number.isNaN(value) ? 0 : value;
+  return Math.max(0, Math.min(100, n));
+}
+
 function Session({ apiBase }) {
   const [userId, setUserId] = useState(
     localStorage.getItem("ptsd_user_id") || ""
@@ -17,6 +23,7 @@ function Session({ apiBase }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSavingPost, setIsSavingPost] = useState(false);
   const [readConfirmed, setReadConfirmed] = useState(null); // "yes" | "no" | null
+  const [postSaved, setPostSaved] = useState(false);        // post-SUDS 저장 여부
 
   // ---------------------------
   // 1) Generate Story
@@ -41,6 +48,7 @@ function Session({ apiBase }) {
     setSessionId("");
     setReadConfirmed(null);
     setPostSuds(0);
+    setPostSaved(false); // 새 세션 시작할 때 저장 상태 리셋
 
     try {
       const res = await fetch(`${apiBase}/api/story`, {
@@ -121,6 +129,7 @@ function Session({ apiBase }) {
       }
 
       await res.json();
+      setPostSaved(true); // ✅ 저장 성공
       setStatusMsg("✔ Post-session SUDS saved.");
     } catch (e) {
       setStatusMsg("❌ Failed to save post-SUDS: " + e.message);
@@ -164,14 +173,16 @@ function Session({ apiBase }) {
             max={100}
             step={1}
             value={preSuds}
-            onChange={(e) => setPreSuds(parseInt(e.target.value, 10))}
+            onChange={(e) => setPreSuds(clampSuds(parseInt(e.target.value, 10)))}
             className="slider"
           />
           <div className="slider-meta">
-            <span className="slider-value">{preSuds}</span>
-            <span className="slider-caption">
+            <div className="slider-value">
+              Current SUDS: <span>{preSuds}</span> / 100
+            </div>
+            <div className="slider-caption">
               0 = totally calm · 100 = worst distress you can imagine
-            </span>
+            </div>
           </div>
         </div>
 
@@ -188,10 +199,12 @@ function Session({ apiBase }) {
             className="slider"
           />
           <div className="slider-meta">
-            <span className="slider-value">{intensity.toFixed(2)}</span>
-            <span className="slider-caption">
+            <div className="slider-value">
+              Current intensity: <span>{intensity.toFixed(2)}</span>
+            </div>
+            <div className="slider-caption">
               Higher values → more varied and emotionally vivid stories.
-            </span>
+            </div>
           </div>
         </div>
 
@@ -248,23 +261,31 @@ function Session({ apiBase }) {
               max={100}
               step={1}
               value={postSuds}
-              onChange={(e) => setPostSuds(parseInt(e.target.value, 10))}
+              onChange={(e) =>
+                setPostSuds(clampSuds(parseInt(e.target.value, 10)))
+              }
               className="slider"
             />
             <div className="slider-meta">
-              <span className="slider-value">{postSuds}</span>
-              <span className="slider-caption">
+              <div className="slider-value">
+                Current SUDS: <span>{postSuds}</span> / 100
+              </div>
+              <div className="slider-caption">
                 Rate how distressed you feel right now, after reading.
-              </span>
+              </div>
             </div>
           </div>
 
           <button
             className={`primary-btn ${isSavingPost ? "btn-loading" : ""}`}
             onClick={savePostSuds}
-            disabled={isSavingPost}
+            disabled={isSavingPost || postSaved}
           >
-            {isSavingPost ? "Saving..." : "Save Post SUDS"}
+            {isSavingPost
+              ? "Saving..."
+              : postSaved
+              ? "Saved"
+              : "Save Post SUDS"}
           </button>
         </div>
       )}
