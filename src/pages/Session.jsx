@@ -1,10 +1,7 @@
-// src/pages/Session.jsx
-import { useState, useEffect } from "react";
-import SudsReferenceTable from "./SudsReferenceTable";
+import { useEffect, useState } from "react";
 
 function Session({ apiBase }) {
   const [userId, setUserId] = useState("");
-  const [sudsScale, setSudsScale] = useState(null);
 
   const [preSuds, setPreSuds] = useState(30);
   const [postSuds, setPostSuds] = useState(30);
@@ -16,7 +13,11 @@ function Session({ apiBase }) {
 
   const [hasReadStory, setHasReadStory] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
+  const [sudsScale, setSudsScale] = useState(null);
+
+  // --- load SUDS scale for tooltip / helper text ---
   useEffect(() => {
     fetch(`${apiBase}/api/suds/scale`)
       .then((res) => res.json())
@@ -24,7 +25,7 @@ function Session({ apiBase }) {
       .catch(() => {});
   }, [apiBase]);
 
-  const renderScaleHint = (value) => {
+  const getSudsHint = (value) => {
     if (!sudsScale) return null;
     const scores = Object.keys(sudsScale).map((k) => Number(k));
     let closest = scores[0];
@@ -36,13 +37,10 @@ function Session({ apiBase }) {
         closest = s;
       }
     }
-    return (
-      <p className="help-text">
-        Approximate description around {closest}: {sudsScale[closest]}
-      </p>
-    );
+    return `${closest}: ${sudsScale[closest]}`;
   };
 
+  // --- start story session ---
   const startSession = async () => {
     setStatusMsg("");
     setStory("");
@@ -55,6 +53,12 @@ function Session({ apiBase }) {
       return;
     }
 
+    if (preSuds < 0 || preSuds > 100) {
+      setStatusMsg("Pre-session SUDS must be between 0 and 100.");
+      return;
+    }
+
+    setIsLoading(true);
     try {
       const res = await fetch(`${apiBase}/api/story`, {
         method: "POST",
@@ -76,17 +80,26 @@ function Session({ apiBase }) {
       setSessionId(data.session_id);
       setStatusMsg("Exposure story generated. Please read it carefully.");
     } catch (err) {
-      setStatusMsg(`❌ Failed to start session: ${err.message}`);
+      setStatusMsg(`❌ Failed to start story session: ${err.message}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const submitPostSuds = async () => {
+  // --- submit post-session SUDS ---
+  const submitPost = async () => {
+    setStatusMsg("");
+
     if (!sessionId) {
       setStatusMsg("Please generate a story first.");
       return;
     }
     if (!hasReadStory) {
-      setStatusMsg("Please confirm that you have read the story.");
+      setStatusMsg("Please confirm that you have read the story to the end.");
+      return;
+    }
+    if (postSuds < 0 || postSuds > 100) {
+      setStatusMsg("Post-session SUDS must be between 0 and 100.");
       return;
     }
 
@@ -102,12 +115,12 @@ function Session({ apiBase }) {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Failed to submit post-SUDS");
+        throw new Error(err.detail || "Failed to submit post-SUDS.");
       }
 
       const data = await res.json();
       setNextIntensity(data.new_intensity);
-      setStatusMsg("Post-SUDS score saved.");
+      setStatusMsg("Post-session SUDS saved.");
     } catch (err) {
       setStatusMsg(`❌ Failed to submit post-SUDS: ${err.message}`);
     }
@@ -117,12 +130,13 @@ function Session({ apiBase }) {
     <div>
       <h2>Session – Exposure Story</h2>
       <p className="page-intro">
-        In each session, you first record your pre-session SUDS, then read an
-        exposure story based on your trauma narrative, and finally record your
-        post-session SUDS. This information is used to adapt the intensity of
-        the next session.
+        In each session, you first rate your distress (pre-SUDS), then read an
+        exposure story based on your trauma narrative, and finally rate your
+        distress again (post-SUDS). The system adapts the next session&apos;s
+        story intensity based on these scores.
       </p>
 
+      {/* --- Session controls --- */}
       <div className="card">
         <div className="field-group">
           <label>User ID</label>
@@ -137,8 +151,7 @@ function Session({ apiBase }) {
         <div className="field-group">
           <label>1. Pre-session SUDS (0–100)</label>
           <p className="help-text">
-            Rate your current level of distress right now on a scale from 0 to
-            100.
+            Rate how distressed you feel right now before reading the story.
           </p>
 
           <input
@@ -159,28 +172,28 @@ function Session({ apiBase }) {
               min="0"
               max="100"
               value={preSuds}
-              onChange={(e) => setPreSuds(Number(e.target.value))}
+              onChange={(e) =>
+                setPreSuds(
+                  Number.isNaN(Number(e.target.value))
+                    ? 0
+                    : Number(e.target.value)
+                )
+              }
             />
             <span>pts</span>
           </div>
 
-          {renderScaleHint(preSuds)}
-
-          <div className="suds-help-block">
-            <details>
-              <summary>What do these numbers mean? (Open SUDS guide)</summary>
-              <SudsReferenceTable />
-            </details>
-          </div>
+          {sudsScale && (
+            <p className="help-text">Hint: {getSudsHint(preSuds)}</p>
+          )}
         </div>
 
         <div className="field-group">
           <label>2. Story Intensity (LLM temperature)</label>
           <p className="help-text">
-            This controls how intense/creative the exposure story will be. A
-            higher value leads to a looser and often more intense story.
+            Controls how intense and detailed the story becomes. Higher values
+            tend to produce more varied, emotionally rich narratives.
           </p>
-
           <input
             type="range"
             min="0.2"
@@ -194,13 +207,19 @@ function Session({ apiBase }) {
           </p>
         </div>
 
-        <button type="button" className="primary-btn" onClick={startSession}>
-          Generate Story
+        <button
+          type="button"
+          className="primary-btn"
+          onClick={startSession}
+          disabled={isLoading}
+        >
+          {isLoading ? "Generating story..." : "Generate Story"}
         </button>
 
         {statusMsg && <p className="status-text">{statusMsg}</p>}
       </div>
 
+      {/* --- Story display --- */}
       {story && (
         <div className="card" style={{ marginTop: 16 }}>
           <h3>3. Exposure Story</h3>
@@ -217,13 +236,14 @@ function Session({ apiBase }) {
         </div>
       )}
 
+      {/* --- Post-SUDS input --- */}
       {story && (
         <div className="card" style={{ marginTop: 16 }}>
           <div className="field-group">
             <label>4. Post-session SUDS (0–100)</label>
             <p className="help-text">
-              Immediately after reading the story, rate your current level of
-              distress again on a scale from 0 to 100.
+              Immediately after finishing the story, rate how distressed you
+              feel now.
             </p>
 
             <input
@@ -244,25 +264,33 @@ function Session({ apiBase }) {
                 min="0"
                 max="100"
                 value={postSuds}
-                onChange={(e) => setPostSuds(Number(e.target.value))}
+                onChange={(e) =>
+                  setPostSuds(
+                    Number.isNaN(Number(e.target.value))
+                      ? 0
+                      : Number(e.target.value)
+                  )
+                }
               />
               <span>pts</span>
             </div>
 
-            {renderScaleHint(postSuds)}
+            {sudsScale && (
+              <p className="help-text">Hint: {getSudsHint(postSuds)}</p>
+            )}
           </div>
 
           <button
             type="button"
             className="secondary-btn"
-            onClick={submitPostSuds}
+            onClick={submitPost}
           >
             Save Post-SUDS
           </button>
 
-          {nextIntensity && (
+          {nextIntensity != null && (
             <p className="help-text" style={{ marginTop: 8 }}>
-              Recommended intensity for the next session:{" "}
+              ➡ Recommended intensity for the next session:&nbsp;
               <b>{nextIntensity.toFixed(2)}</b>
             </p>
           )}
