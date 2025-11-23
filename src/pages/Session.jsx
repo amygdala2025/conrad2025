@@ -1,6 +1,6 @@
 import { useState } from "react";
-import SudsModal from "../SudsModal";
-import SudsReferenceTable from "../SudsReferenceTable";
+import SudsModal from "./SudsModal";
+import SudsReferenceTable from "./SudsReferenceTable";
 
 function Session({ apiBase }) {
   const [userId, setUserId] = useState(localStorage.getItem("ptsd_user_id") || "");
@@ -200,3 +200,4 @@ function Session({ apiBase }) {
 }
 
 export default Session;
+
