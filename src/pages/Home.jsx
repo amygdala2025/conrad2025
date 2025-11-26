@@ -1,4 +1,5 @@
 // src/pages/Home.jsx
+
 function Home({ onStartIntake, onGoSession }) {
   const handleStartIntake = () => {
     if (onStartIntake) onStartIntake();
@@ -14,166 +15,252 @@ function Home({ onStartIntake, onGoSession }) {
   };
 
   return (
-    <div className="home">
-      {/* Hero Section */}
-      <section className="home-hero">
-        <div className="home-hero-inner">
-          <div className="home-hero-left">
-            <h1 className="home-title">
-              PTSD Digital Exposure Therapy
-            </h1>
-            <p className="home-subtitle">
-              An LLM-based platform that helps clinicians deliver
-              personalized exposure narratives while tracking patient
-              distress in real time.
-            </p>
-
-            <div className="home-cta-row">
-              <button className="btn-primary" onClick={handleStartIntake}>
-                Start Intake
-              </button>
-              <button className="btn-secondary" onClick={handleScrollHow}>
-                How it works
-              </button>
-            </div>
-
-            <div className="home-badges">
-              <div className="badge">
-                <span className="badge-label">For Clinicians</span>
-                <span className="badge-text">
-                  Structured intake, SUDS tracking, and story logs in one place.
-                </span>
-              </div>
-              <div className="badge">
-                <span className="badge-label">For Patients</span>
-                <span className="badge-text">
-                  Gradual, controllable exposure with clear SUDS anchors.
-                </span>
-              </div>
-            </div>
+    <div className="home-page">
+      {/* HERO */}
+      <section className="home-hero-layout">
+        <div className="home-hero-left">
+          <div className="home-badge-row">
+            <span className="home-badge">Prototype · PTSD Exposure</span>
           </div>
 
-          <div className="home-hero-right">
-            <div className="hero-card">
-              <div className="hero-card-header">
-                <span className="hero-card-title">Live Session Preview</span>
-                <span className="hero-card-tag">Prototype</span>
-              </div>
-              <div className="hero-card-body">
-                <div className="hero-suds-row">
-                  <div className="hero-suds-label">Current SUDS</div>
-                  <div className="hero-suds-value">35 / 100</div>
-                  <div className="hero-suds-chip">Mild – manageable</div>
-                </div>
-                <div className="hero-story-snippet">
-                  “You step into the hospital corridor where the incident
-                  happened. The fluorescent lights hum softly above you…”
-                </div>
-                <div className="hero-progress-row">
-                  <div className="hero-progress-label">Exposure dose</div>
-                  <div className="hero-progress-track">
-                    <div className="hero-progress-fill" />
-                  </div>
-                  <div className="hero-progress-text">Low–moderate</div>
-                </div>
-              </div>
-              <div className="hero-card-footer">
-                <button className="btn-ghost" onClick={handleGoSession}>
-                  Go to Session page
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+          <h1 className="home-hero-title">
+            LLM-assisted <span>digital exposure therapy</span> for PTSD
+          </h1>
 
-      {/* How it works */}
-      <section id="how-it-works" className="home-section">
-        <div className="home-section-inner">
-          <h2 className="section-title">How this prototype works</h2>
-          <p className="section-subtitle">
-            The platform is designed for supervised clinical use. It does not
-            replace therapy, but helps structure and document exposure work.
+          <p className="home-hero-subtitle">
+            A clinician-guided platform that generates trauma-specific exposure
+            stories, tracks SUDS, and visualizes change across sessions.
           </p>
 
-          <div className="home-steps-grid">
-            <div className="step-card">
-              <div className="step-number">1</div>
-              <h3 className="step-title">Structured Intake</h3>
-              <p className="step-text">
-                Collect background, trauma categories, and safety information
-                in a standardized form. This becomes the foundation for all
-                future exposure sessions.
-              </p>
+          <div className="home-hero-cta-row">
+            <button
+              type="button"
+              className="primary-btn hero-primary-btn"
+              onClick={handleStartIntake}
+            >
+              Start with Intake
+            </button>
+            <button
+              type="button"
+              className="secondary-btn hero-secondary-btn"
+              onClick={handleScrollHow}
+            >
+              See how it works
+            </button>
+          </div>
+
+          <ul className="home-hero-bullets">
+            <li>
+              <strong>Structured exposure:</strong> Align each narrative with a
+              target SUDS range and clinical goal.
+            </li>
+            <li>
+              <strong>Objective tracking:</strong> Log pre/post SUDS and story
+              intensity for every session.
+            </li>
+            <li>
+              <strong>Dashboard view:</strong> Review change in distress over
+              time for each patient.
+            </li>
+          </ul>
+        </div>
+
+        {/* Right-side preview card */}
+        <div className="home-hero-right">
+          <div className="home-preview-card">
+            <div className="home-preview-header">
+              <span className="home-preview-title">Live Session Preview</span>
+              <span className="home-preview-tag">Demo</span>
             </div>
-            <div className="step-card">
-              <div className="step-number">2</div>
-              <h3 className="step-title">SUDS-anchored Story Generation</h3>
-              <p className="step-text">
-                For each session, clinicians set a pre-exposure SUDS target and
-                desired story intensity. The LLM generates a narrative tailored
-                to that range.
-              </p>
+
+            <div className="home-preview-body">
+              <div className="home-preview-suds-row">
+                <div>
+                  <p className="preview-label">Current SUDS</p>
+                  <p className="preview-suds-value">35 / 100</p>
+                </div>
+                <div className="preview-suds-chip">Mild distress</div>
+              </div>
+
+              <div className="preview-story-box">
+                <p className="preview-story-label">Exposure narrative (excerpt)</p>
+                <p className="preview-story-text">
+                  “You stand in the hospital corridor where the event took place.
+                  The fluorescent lights hum overhead. You notice your breathing,
+                  a little faster than usual, but still under control…”
+                </p>
+              </div>
+
+              <div className="preview-progress-row">
+                <p className="preview-label">Exposure dose</p>
+                <div className="preview-progress-track">
+                  <div className="preview-progress-fill" />
+                </div>
+                <p className="preview-progress-text">Low–moderate</p>
+              </div>
             </div>
-            <div className="step-card">
-              <div className="step-number">3</div>
-              <h3 className="step-title">Tracking & Dashboard</h3>
-              <p className="step-text">
-                Session IDs, pre/post SUDS, and story metadata are logged so that
-                clinicians can track progress across multiple exposures.
+
+            <div className="home-preview-footer">
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={handleGoSession}
+              >
+                Go to Session page
+              </button>
+              <p className="home-preview-footnote">
+                * Prototype only. For supervised clinical use.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* SUDS explanation */}
+      {/* EXPLANATION: SUDS + DIGITAL THERAPY */}
       <section className="home-section home-section-alt">
         <div className="home-section-inner">
-          <h2 className="section-title">What is SUDS?</h2>
-          <p className="section-subtitle">
-            SUDS (Subjective Units of Distress Scale) is a 0–100 scale that
-            helps patients communicate how distressed they feel in the moment.
+          <h2>Why use a digital exposure assistant?</h2>
+          <p className="home-section-subtitle">
+            Exposure therapy is effective, but it is cognitively demanding for
+            clinicians and emotionally intense for patients. This prototype aims
+            to support, not replace, the therapist.
           </p>
 
-          <div className="home-two-column">
-            <div className="col">
-              <h3 className="step-title">0–30: Low Distress</h3>
-              <p className="step-text">
-                Mild tension or discomfort, but still able to focus and think
-                clearly. Suitable for early-stage exposure or warm-up scenarios.
+          <div className="home-three-column">
+            <div className="home-info-card">
+              <h3>Personalized narratives</h3>
+              <p>
+                Generate stories that match the patient&apos;s trauma themes
+                rather than relying on generic exposure scripts.
               </p>
             </div>
-            <div className="col">
-              <h3 className="step-title">30–60: Moderate Distress</h3>
-              <p className="step-text">
-                Noticeable anxiety with some physical symptoms. Often used as
-                the main target range for graded exposure work.
+            <div className="home-info-card">
+              <h3>SUDS-anchored control</h3>
+              <p>
+                Use SUDS (0–100) targets to keep exposure within an agreed
+                distress window and track habituation over time.
               </p>
             </div>
-            <div className="col">
-              <h3 className="step-title">60–100: High Distress</h3>
-              <p className="step-text">
-                Intense anxiety or panic-level distress. This range is approached
-                carefully and only with an established safety plan.
+            <div className="home-info-card">
+              <h3>Transparent data</h3>
+              <p>
+                Every session logs SUDS, story intensity, and key metadata,
+                making supervision and research easier.
               </p>
             </div>
+          </div>
+
+          {/* Optional mini-card for clinicians/researchers */}
+          <div className="home-tagline-card">
+            <p className="home-tagline-title">For clinicians &amp; researchers</p>
+            <p className="home-tagline-text">
+              Use the dashboard view to review SUDS trajectories, story
+              content, and intensity adaptation patterns across sessions.
+            </p>
           </div>
         </div>
       </section>
 
-      {/* Video / demo placeholder */}
-      <section className="home-section">
-        <div className="home-section-inner">
-          <h2 className="section-title">Demo video (coming soon)</h2>
-          <p className="section-subtitle">
-            This area can embed a screen-recorded demo to show clinicians how
-            the full Intake → Session → Dashboard flow works.
-          </p>
+      {/* HOW IT WORKS */}
+      <section id="how-it-works" className="home-section">
+        <h2>How this platform works</h2>
+        <p className="home-section-subtitle">
+          Each session follows the same simple loop: describe, expose, then
+          reflect. The system tracks your SUDS responses to adapt intensity
+          safely over time.
+        </p>
+
+        <div className="home-steps-grid">
+          <div className="card home-step-card">
+            <h3>1. Intake</h3>
+            <p>
+              The user writes their trauma narrative in their own words. The
+              intake form captures triggers, safety information, and consent for
+              digital exposure support.
+            </p>
+          </div>
+          <div className="card home-step-card">
+            <h3>2. Plan exposure</h3>
+            <p>
+              The clinician chooses a target SUDS range and selects story
+              intensity. The system generates a structured exposure script based
+              on the intake data.
+            </p>
+          </div>
+          <div className="card home-step-card">
+            <h3>3. Run session</h3>
+            <p>
+              During the session, the clinician reads the narrative with the
+              patient, checks in on SUDS, and adjusts pacing. Pre/post SUDS
+              scores are logged.
+            </p>
+          </div>
+          <div className="card home-step-card">
+            <h3>4. Review &amp; adapt</h3>
+            <p>
+              Over multiple sessions, the dashboard visualizes SUDS change and
+              exposure dose so clinicians can decide when to increase, maintain,
+              or taper intensity.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* SUDS EXPLANATION */}
+      <section className="home-section home-suds-section">
+        <h2>What is the SUDS scale?</h2>
+        <p className="home-section-subtitle">
+          SUDS (Subjective Units of Distress Scale) is a 0–100 scale that helps
+          patients quickly communicate how distressed they feel in the moment.
+        </p>
+
+        <div className="home-suds-grid">
+          <div className="card suds-card">
+            <h3>0–30 · Low distress</h3>
+            <p>
+              Mild tension or discomfort. Suitable for early exposure, warm-up,
+              or imaginal work that patients can tolerate relatively easily.
+            </p>
+          </div>
+          <div className="card suds-card">
+            <h3>30–60 · Moderate distress</h3>
+            <p>
+              Noticeable anxiety, with some physical symptoms (e.g., tight
+              chest, racing thoughts). Common target range for graded exposure.
+            </p>
+          </div>
+          <div className="card suds-card">
+            <h3>60–100 · High distress</h3>
+            <p>
+              Intense anxiety or near-panic. Used carefully, often later in
+              treatment, with strong safety planning and trust.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* DEMO / VIDEO PLACEHOLDER */}
+      <section className="home-section home-demo-section">
+        <div className="home-demo-inner">
+          <div className="home-demo-text">
+            <h2>Demo video (coming soon)</h2>
+            <p className="home-section-subtitle">
+              You can embed a short walk-through that shows how the Intake →
+              Session → Dashboard flow works in practice.
+            </p>
+            <ul className="home-demo-list">
+              <li>Record a real or mock session using screen capture.</li>
+              <li>Highlight how SUDS sliders and story intensity controls work.</li>
+              <li>
+                Show the dashboard updating after each exposure to visualize
+                progress.
+              </li>
+            </ul>
+          </div>
 
           <div className="home-video-placeholder">
-            <div className="video-frame">
-              <div className="video-play-icon">▶</div>
+            <div className="home-video-frame">
+              <div className="home-video-play-icon">▶</div>
               <p className="home-video-title">Add your demo video here</p>
               <p className="home-video-text">
                 Replace this placeholder with a YouTube link or screen-capture
