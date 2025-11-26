@@ -22,8 +22,13 @@ function App() {
 
   const renderTab = () => {
     if (activeTab === "home") {
-      return <Home onStartIntake={() => setActiveTab("intake")} />;
-    }
+      return (
+    <Home
+      onStartIntake={() => setActiveTab("intake")}
+      onGoSession={() => setActiveTab("session")}
+    />
+  );
+}
     if (activeTab === "intake") {
       return <Intake apiBase={API_BASE} />;
     }
