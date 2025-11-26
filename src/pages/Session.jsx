@@ -24,7 +24,7 @@ function Session({ apiBase }) {
   const [sudsScale, setSudsScale] = useState({});
   const [statusMsg, setStatusMsg] = useState("");
 
-  // SUDS scale 불러오기
+  // Load SUDS scale
   useEffect(() => {
     const loadScale = async () => {
       try {
@@ -32,13 +32,13 @@ function Session({ apiBase }) {
         const data = await res.json();
         setSudsScale(data.scale || {});
       } catch {
-        // 조용히 무시 (필수는 아님)
+        // silently ignore (nice-to-have only)
       }
     };
     loadScale();
   }, [apiBase]);
 
-  // userId 로컬스토리지에 저장
+  // Persist userId in localStorage
   useEffect(() => {
     if (userId) {
       localStorage.setItem("ptsd_user_id", userId);
@@ -59,7 +59,7 @@ function Session({ apiBase }) {
     }
     return (
       <p className="help-text">
-        {closest}점 근처 설명: {sudsScale[closest]}
+        Description near {closest}: {sudsScale[closest]}
       </p>
     );
   };
@@ -75,13 +75,13 @@ function Session({ apiBase }) {
     setPostSaved(false);
 
     if (!userId) {
-      setStatusMsg("❌ User ID를 먼저 입력해주세요.");
+      setStatusMsg("❌ Please enter a User ID first.");
       return;
     }
 
     const token = localStorage.getItem("ptsd_token");
     if (!token) {
-      setStatusMsg("❌ 인증 토큰이 없습니다. Intake를 먼저 완료해주세요.");
+      setStatusMsg("❌ No auth token found. Please complete the Intake step first.");
       return;
     }
 
@@ -109,7 +109,9 @@ function Session({ apiBase }) {
       const data = await res.json();
       setStory(data.story || "");
       setSessionId(data.session_id || "");
-      setStatusMsg("✔ 스토리가 생성되었습니다. 천천히 처음부터 끝까지 읽어 주세요.");
+      setStatusMsg(
+        "✔ Story generated. Please read it slowly from start to finish."
+      );
     } catch (err) {
       setStatusMsg(
         `❌ Failed to start story session: ${
@@ -126,18 +128,20 @@ function Session({ apiBase }) {
   // ---------------------------
   const savePostSuds = async () => {
     if (!sessionId) {
-      setStatusMsg("❌ 먼저 스토리를 생성해주세요.");
+      setStatusMsg("❌ Please generate a story first.");
       return;
     }
     if (!hasReadStory) {
-      setStatusMsg("❌ 스토리를 끝까지 읽었다는 체크박스를 먼저 선택해주세요.");
+      setStatusMsg(
+        "❌ Please check the box confirming you have read the story all the way through."
+      );
       return;
     }
 
     const clampedPost = clamp(postSuds, 0, 100);
     const token = localStorage.getItem("ptsd_token");
     if (!token) {
-      setStatusMsg("❌ 인증 토큰이 없습니다.");
+      setStatusMsg("❌ No auth token found.");
       return;
     }
 
@@ -163,7 +167,7 @@ function Session({ apiBase }) {
       }
 
       await res.json();
-      setStatusMsg("✔ Post-session SUDS가 저장되었습니다.");
+      setStatusMsg("✔ Post-session SUDS has been saved.");
       setPostSaved(true);
     } catch (e) {
       setStatusMsg("❌ Failed to save post-SUDS: " + e.message);
@@ -176,9 +180,9 @@ function Session({ apiBase }) {
     <div>
       <h2>Session – Exposure Story</h2>
       <p className="page-intro">
-        세션마다 현재의 SUDS 점수를 기록한 뒤, 트라우마 기반 노출 스토리를 읽고
-        다시 SUDS를 평가합니다. 이 정보는 다음 세션의 intensity를 조정하는 데
-        사용됩니다.
+        At each session you first record your current SUDS score, then read a
+        trauma-based exposure story, and finally rate your SUDS again. These
+        data are used to adjust the story intensity for the next session.
       </p>
 
       <div className="card">
@@ -188,7 +192,7 @@ function Session({ apiBase }) {
           <input
             type="text"
             value={userId}
-            placeholder="예: 0001"
+            placeholder="e.g., 0001"
             onChange={(e) => setUserId(e.target.value)}
           />
         </div>
@@ -197,7 +201,7 @@ function Session({ apiBase }) {
         <div className="field-group">
           <label>1. Pre-session SUDS (0–100)</label>
           <p className="help-text">
-            지금 이 순간의 불안/긴장 정도를 0–100 사이 숫자로 표시해주세요.
+            Please rate your current level of anxiety/tension from 0 to 100.
           </p>
 
           <input
@@ -222,14 +226,16 @@ function Session({ apiBase }) {
                 setPreSuds(clamp(Number(e.target.value || 0), 0, 100))
               }
             />
-            <span>점</span>
+            <span>pts</span>
           </div>
 
           {renderScaleHint(preSuds)}
 
           <div className="suds-help-block">
             <details>
-              <summary>이 숫자들은 어떤 의미인가요? (SUDS 예시 표 보기)</summary>
+              <summary>
+                What do these numbers mean? (View example SUDS scale)
+              </summary>
               <SudsReferenceTable />
             </details>
           </div>
@@ -239,8 +245,8 @@ function Session({ apiBase }) {
         <div className="field-group">
           <label>2. Story Intensity (LLM temperature)</label>
           <p className="help-text">
-            노출 스토리의 강도를 조절합니다. 값이 높을수록 더 자유롭고 강한
-            스토리가 생성됩니다.
+            Controls how intense the exposure story feels. Higher values produce
+            freer and more emotionally intense stories.
           </p>
 
           <input
@@ -252,12 +258,12 @@ function Session({ apiBase }) {
             onChange={(e) => setIntensity(Number(e.target.value))}
           />
           <p className="help-text">
-            현재 intensity: {intensity.toFixed(2)} – Higher values → more varied
-            and emotionally vivid stories.
+            Current intensity: {intensity.toFixed(2)} – Higher values → more
+            varied and emotionally vivid stories.
           </p>
         </div>
 
-        {/* Generate Story 버튼 */}
+        {/* Generate Story button */}
         <div className="field-group">
           <button
             type="button"
@@ -272,13 +278,13 @@ function Session({ apiBase }) {
         {statusMsg && <p className="status-text">{statusMsg}</p>}
       </div>
 
-      {/* Story 영역 + Post SUDS */}
+      {/* Story area + Post SUDS */}
       {sessionId && (
         <div className="card" style={{ marginTop: 24 }}>
           <h3>Exposure Story</h3>
           <p className="help-text">
-            아래 스토리를 천천히, 중간에 생기는 감정과 신체 감각을 알아차리면서
-            읽어주세요.
+            Please read the story slowly, paying attention to any emotions and
+            body sensations that arise as you go.
           </p>
 
           <div className="story-box">
@@ -292,7 +298,7 @@ function Session({ apiBase }) {
                 checked={hasReadStory}
                 onChange={(e) => setHasReadStory(e.target.checked)}
               />{" "}
-              이야기를 처음부터 끝까지 읽었습니다.
+              I have read the story from beginning to end.
             </label>
           </div>
 
@@ -317,7 +323,7 @@ function Session({ apiBase }) {
                   setPostSuds(clamp(Number(e.target.value || 0), 0, 100))
                 }
               />
-              <span>점</span>
+              <span>pts</span>
             </div>
           </div>
 
@@ -328,7 +334,11 @@ function Session({ apiBase }) {
               onClick={savePostSuds}
               disabled={isSavingPost}
             >
-              {postSaved ? "Saved ✅" : isSavingPost ? "Saving..." : "Save Post SUDS"}
+              {postSaved
+                ? "Saved ✅"
+                : isSavingPost
+                ? "Saving..."
+                : "Save Post SUDS"}
             </button>
           </div>
         </div>
