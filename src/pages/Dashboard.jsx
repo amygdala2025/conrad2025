@@ -15,7 +15,7 @@ function Dashboard({ apiBase }) {
   const [userId, setUserId] = useState(
     localStorage.getItem("ptsd_user_id") || ""
   );
-  const [sessions, setSessions] = useState([]); // history에서 받은 리스트
+  const [sessions, setSessions] = useState([]); // list from SUDS history
   const [selectedSession, setSelectedSession] = useState(null);
   const [statusMsg, setStatusMsg] = useState("");
   const [loading, setLoading] = useState(false);
@@ -23,18 +23,18 @@ function Dashboard({ apiBase }) {
 
   const token = localStorage.getItem("ptsd_token") || "";
 
-  // Dashboard 데이터 로드 (SUDS history)
+  // Load Dashboard data (SUDS history)
   const loadData = async () => {
     setStatusMsg("");
     setSessions([]);
     setSelectedSession(null);
 
     if (!userId) {
-      setStatusMsg("User ID를 입력해주세요.");
+      setStatusMsg("❌ Please enter a User ID.");
       return;
     }
     if (!token) {
-      setStatusMsg("인증 토큰이 없습니다. Intake를 먼저 완료해주세요.");
+      setStatusMsg("❌ No authentication token found. Please complete Intake first.");
       return;
     }
 
@@ -49,10 +49,11 @@ function Dashboard({ apiBase }) {
       }
       const data = await res.json();
       const list = data.history || [];
-      // 최신이 위로 오도록 백엔드에서 정렬되어 있음
+
+      // Sort is handled by backend: latest first
       setSessions(list);
       if (list.length > 0) {
-        await loadSessionDetail(list[0].session_id); // 가장 최근 세션 선택
+        await loadSessionDetail(list[0].session_id); // auto-select most recent session
       }
     } catch (err) {
       setStatusMsg(`❌ Failed to load data: ${err.message}`);
@@ -61,7 +62,7 @@ function Dashboard({ apiBase }) {
     }
   };
 
-  // 개별 세션 상세(스토리 포함) 로드
+  // Load individual session detail (including story)
   const loadSessionDetail = async (sessionId) => {
     if (!token) return;
     setLoadingStory(true);
@@ -86,7 +87,7 @@ function Dashboard({ apiBase }) {
     }
   };
 
-  // 차트용 데이터 (시간 순 정렬)
+  // Build chart data sorted by time (oldest → newest)
   const chartData = sessions
     .slice()
     .reverse()
@@ -100,8 +101,8 @@ function Dashboard({ apiBase }) {
     <div>
       <h2>Dashboard</h2>
       <p className="page-intro">
-        날짜별 Pre / Post SUDS 변화와 각 세션에서 생성된 노출 스토리를 확인할 수
-        있습니다.
+        Review changes in your Pre/Post SUDS scores over time and revisit the
+        exposure stories generated in each session.
       </p>
 
       <div className="card">
@@ -111,7 +112,7 @@ function Dashboard({ apiBase }) {
             <input
               type="text"
               value={userId}
-              placeholder="예: 0001"
+              placeholder="e.g., 0001"
               onChange={(e) => setUserId(e.target.value)}
             />
           </div>
@@ -130,7 +131,7 @@ function Dashboard({ apiBase }) {
 
       {sessions.length > 0 && (
         <>
-          {/* SUDS 트렌드 차트 */}
+          {/* SUDS trend chart */}
           <div className="card" style={{ marginTop: 16 }}>
             <h3>SUDS Trend by Session</h3>
             <div style={{ width: "100%", height: 320 }}>
@@ -160,7 +161,7 @@ function Dashboard({ apiBase }) {
             </div>
           </div>
 
-          {/* 세션 리스트 + 스토리 상세 */}
+          {/* Session list + Story detail */}
           <div
             className="card"
             style={{
@@ -223,7 +224,7 @@ function Dashboard({ apiBase }) {
               ) : (
                 !loadingStory && (
                   <p className="help-text">
-                    왼쪽에서 보고 싶은 세션을 선택하세요.
+                    Select a session from the list on the left.
                   </p>
                 )
               )}
