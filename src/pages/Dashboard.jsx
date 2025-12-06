@@ -1,5 +1,5 @@
 // src/pages/Dashboard.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   LineChart,
   Line,
@@ -13,379 +13,392 @@ import {
 
 const ADMIN_USER_ID = "amygdala_admin";
 
-function Dashboard({ apiBase }) {
+// 🔥 Cloud Run backend URL
+const API_BASE =
+  "https://ptsd-backend-761910111968.asia-northeast3.run.app";
+
+function Dashboard() {
   const [userId, setUserId] = useState(
     localStorage.getItem("ptsd_user_id") || ""
   );
-  const [adminPw, setAdminPw] = useState("");
-  const [statusMsg, setStatusMsg] = useState("");
+  const [token, setToken] = useState(
+    localStorage.getItem("ptsd_token") || ""
+  );
+
+  const isAdmin = userId === ADMIN_USER_ID;
+
+  // for admin: optional filter to view another user's history
+  const [filterUserId, setFilterUserId] = useState("");
 
   const [sessions, setSessions] = useState([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [currentHistoryUser, setCurrentHistoryUser] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [statusMsg, setStatusMsg] = useState("");
 
-  const [selectedSession, setSelectedSession] = useState(null);
-  const [loadingStory, setLoadingStory] = useState(false);
-
-  const [downloadingStories, setDownloadingStories] = useState(false);
-  const [downloadingSuds, setDownloadingSuds] = useState(false);
-
-  const isAdmin = userId.trim() === ADMIN_USER_ID;
-
-  const onChangeUserId = (e) => {
-    setUserId(e.target.value);
-    localStorage.setItem("ptsd_user_id", e.target.value);
+  // ---------------------------
+  // Helpers
+  // ---------------------------
+  const buildAuthHeaders = (extra = {}) => {
+    const headers = { ...extra };
+    if (token) {
+      headers["X-Auth-Token"] = token;
+    }
+    return headers;
   };
 
-  const buildHeaders = (extra = {}) => {
-    const token = localStorage.getItem("ptsd_token");
-    if (!token) return null;
-    return {
-      "X-Auth-Token": token,
-      ...(isAdmin && adminPw ? { "X-Admin-Password": adminPw } : {}),
-      ...extra,
-    };
+  const ensureLoggedIn = () => {
+    if (!token || !userId) {
+      setStatusMsg(
+        "❌ You need to log in first on the Intake page. User ID and token are missing."
+      );
+      return false;
+    }
+    return true;
   };
 
   // ---------------------------
-  // 1) /api/suds/history/{user_id}
+  // Load history
   // ---------------------------
   const loadHistory = async () => {
     setStatusMsg("");
     setSessions([]);
-    setSelectedSession(null);
 
-    if (!userId) {
-      setStatusMsg("❌ User ID를 입력해주세요.");
-      return;
-    }
+    if (!ensureLoggedIn()) return;
 
-    const headers = buildHeaders();
-    if (!headers) {
-      setStatusMsg("❌ 토큰이 없습니다. Intake/로그인부터 진행해주세요.");
-      return;
-    }
-
-    setLoadingHistory(true);
+    setLoading(true);
     try {
-      const res = await fetch(`${apiBase}/api/suds/history/${userId}`, {
-        headers,
+      // 기본적으로는 자신의 히스토리
+      let url = `${API_BASE}/api/sessions/history`;
+
+      // Admin이면 다른 user_id로 필터 가능
+      if (isAdmin && filterUserId.trim() !== "") {
+        const q = encodeURIComponent(filterUserId.trim());
+        url += `?user_id=${q}`;
+      }
+
+      const res = await fetch(url, {
+        method: "GET",
+        headers: buildAuthHeaders(),
       });
+
       if (!res.ok) {
         const err = await res.json().catch(() => null);
         throw new Error(err?.detail || `HTTP ${res.status}`);
       }
-      const data = await res.json();
-      const list = data.history || [];
-      setSessions(list);
 
-      if (list.length > 0) {
-        await loadSessionDetail(list[0].session_id, headers);
+      const data = await res.json(); // { user_id, sessions: [...] }
+      setCurrentHistoryUser(data.user_id || "");
+      setSessions(data.sessions || []);
+      if (!data.sessions || data.sessions.length === 0) {
+        setStatusMsg("ℹ️ No sessions found for this user yet.");
       }
-      setStatusMsg(
-        list.length > 0
-          ? `✅ ${list.length}개의 세션을 불러왔습니다.`
-          : "✅ 세션 히스토리가 없습니다."
-      );
     } catch (err) {
       setStatusMsg(`❌ Failed to load history: ${err.message}`);
     } finally {
-      setLoadingHistory(false);
+      setLoading(false);
     }
   };
 
   // ---------------------------
-  // 2) /api/sessions/{session_id}
+  // Admin JSON export
   // ---------------------------
-  const loadSessionDetail = async (sessionId, headersFromHistory) => {
+  const handleExportJson = async () => {
     setStatusMsg("");
-    setLoadingStory(true);
 
-    try {
-      const tokenHeaders = headersFromHistory || buildHeaders();
-      if (!tokenHeaders) {
-        setStatusMsg("❌ 토큰이 없습니다.");
-        setLoadingStory(false);
-        return;
-      }
-
-      const res = await fetch(`${apiBase}/api/sessions/${sessionId}`, {
-        headers: tokenHeaders,
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(err?.detail || `HTTP ${res.status}`);
-      }
-      const data = await res.json();
-      setSelectedSession(data);
-    } catch (err) {
-      setStatusMsg(`❌ Failed to load session detail: ${err.message}`);
-    } finally {
-      setLoadingStory(false);
-    }
-  };
-
-  // ---------------------------
-  // 3) Admin: Stories JSON export
-  // ---------------------------
-  const exportStoriesJson = async () => {
-    setStatusMsg("");
+    if (!ensureLoggedIn()) return;
     if (!isAdmin) {
-      setStatusMsg("❌ 이 기능은 admin만 사용할 수 있습니다.");
-      return;
-    }
-    const headers = buildHeaders();
-    if (!headers || !adminPw) {
-      setStatusMsg("❌ Admin password와 토큰을 확인해주세요.");
+      setStatusMsg("❌ Only the admin user can export all sessions.");
       return;
     }
 
-    setDownloadingStories(true);
+    setLoading(true);
     try {
-      const res = await fetch(`${apiBase}/api/admin/stories/export`, {
-        headers,
+      const res = await fetch(`${API_BASE}/api/admin/sessions`, {
+        method: "GET",
+        headers: buildAuthHeaders(),
       });
+
       if (!res.ok) {
         const err = await res.json().catch(() => null);
         throw new Error(err?.detail || `HTTP ${res.status}`);
       }
-      const data = await res.json();
-      const text = JSON.stringify(data, null, 2);
 
-      const blob = new Blob([text], {
-        type: "application/json;charset=utf-8",
+      const data = await res.json(); // array of sessions including story
+
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
       });
       const url = URL.createObjectURL(blob);
-
       const a = document.createElement("a");
       a.href = url;
-      a.download = "all_stories.json";
+      a.download = "sessions_with_stories.json";
+      document.body.appendChild(a);
       a.click();
-
+      a.remove();
       URL.revokeObjectURL(url);
-      setStatusMsg("✅ Stories JSON export가 완료되었습니다.");
+
+      setStatusMsg("✅ Exported JSON for all sessions (with stories).");
     } catch (err) {
-      setStatusMsg(`❌ Export failed: ${err.message}`);
+      setStatusMsg(`❌ JSON export failed: ${err.message}`);
     } finally {
-      setDownloadingStories(false);
+      setLoading(false);
     }
   };
 
   // ---------------------------
-  // 4) Admin: SUDS CSV export
+  // Admin CSV export (SUDS + story)
   // ---------------------------
-  const exportSudsCsv = async () => {
+  const handleExportCsv = async () => {
     setStatusMsg("");
+
+    if (!ensureLoggedIn()) return;
     if (!isAdmin) {
-      setStatusMsg("❌ 이 기능은 admin만 사용할 수 있습니다.");
-      return;
-    }
-    const headers = buildHeaders();
-    if (!headers || !adminPw) {
-      setStatusMsg("❌ Admin password와 토큰을 확인해주세요.");
+      setStatusMsg("❌ Only the admin user can export all sessions.");
       return;
     }
 
-    setDownloadingSuds(true);
+    setLoading(true);
     try {
-      const res = await fetch(`${apiBase}/api/admin/suds/export`, {
-        headers,
+      const res = await fetch(`${API_BASE}/api/admin/export/csv`, {
+        method: "GET",
+        headers: buildAuthHeaders(),
       });
+
       if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(err?.detail || `HTTP ${res.status}`);
+        // CSV라 json() 호출하면 깨질 수 있어서 텍스트만 보고 에러 표시
+        const text = await res.text().catch(() => "");
+        throw new Error(
+          text || `HTTP ${res.status} (failed to download CSV)`
+        );
       }
+
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-
       const a = document.createElement("a");
       a.href = url;
-      a.download = "suds_export.csv";
+      a.download = "sessions_suds_story.csv";
+      document.body.appendChild(a);
       a.click();
-
+      a.remove();
       URL.revokeObjectURL(url);
-      setStatusMsg("✅ SUDS CSV export가 완료되었습니다.");
+
+      setStatusMsg("✅ Exported CSV for all sessions (SUDS + story).");
     } catch (err) {
-      setStatusMsg(`❌ Export failed: ${err.message}`);
+      setStatusMsg(`❌ CSV export failed: ${err.message}`);
     } finally {
-      setDownloadingSuds(false);
+      setLoading(false);
     }
   };
 
   // ---------------------------
-  // 5) 그래프용 데이터 변환
+  // 자동으로 한 번 로드
   // ---------------------------
-  const chartData = sessions.map((s, idx) => ({
-    idx: idx + 1,
-    pre_suds: s.pre_suds,
-    post_suds: s.post_suds,
-  }));
+  useEffect(() => {
+    if (token && userId) {
+      loadHistory();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ---------------------------
+  // Chart 준비
+  // ---------------------------
+  const chartData = sessions.map((s) => {
+    // created_at → 예쁘게 포맷된 라벨
+    let label = s.created_at;
+    try {
+      label = new Date(s.created_at).toLocaleString();
+    } catch {
+      // ignore parse error, keep raw
+    }
+    return {
+      ...s,
+      label,
+    };
+  });
 
   return (
     <div className="page">
       <h1>Dashboard</h1>
       <p className="page-intro">
-        유저별 세션 히스토리를 확인하고, pre/post SUDS 변화를 그래프로 볼 수
-        있습니다. Admin 계정은 전체 데이터를 export할 수 있습니다.
+        This dashboard visualizes SUDS scores over time and allows the admin to
+        export session data (including stories) as JSON and CSV.
       </p>
 
-      {/* 상단: User ID / Admin PW / 버튼들 */}
       <div className="card">
-        <div className="field-row">
-          <div className="field-group" style={{ flex: 1 }}>
-            <label>User ID</label>
-            <input
-              type="text"
-              value={userId}
-              onChange={onChangeUserId}
-              placeholder="조회할 User ID"
-            />
-          </div>
-
-          {isAdmin && (
-            <div className="field-group" style={{ flex: 1 }}>
-              <label>Admin Password</label>
-              <input
-                type="password"
-                value={adminPw}
-                onChange={(e) => setAdminPw(e.target.value)}
-                placeholder="ADMIN_PASSWORD"
-              />
-            </div>
+        {/* Basic auth info */}
+        <div className="field-group">
+          <label>Current user ID (from localStorage)</label>
+          <input
+            type="text"
+            value={userId}
+            readOnly
+            placeholder="Not logged in"
+          />
+          {!token && (
+            <p className="help-text">
+              You are not logged in. Please go to the Intake page, log in, and
+              then return here.
+            </p>
+          )}
+          {token && (
+            <p className="help-text">
+              Token is present. If the user ID is <b>{ADMIN_USER_ID}</b>, you
+              can use admin features below.
+            </p>
           )}
         </div>
 
-        <div className="field-row" style={{ marginTop: 8, gap: 8 }}>
+        {/* Admin filter */}
+        {isAdmin && (
+          <div className="field-group">
+            <label>View history for user ID (admin only)</label>
+            <input
+              type="text"
+              value={filterUserId}
+              onChange={(e) => setFilterUserId(e.target.value)}
+              placeholder="Leave empty to view your own sessions"
+            />
+            <p className="help-text">
+              As admin, you can type a user ID here and press{" "}
+              <b>Reload history</b> to inspect their SUDS trend. If left empty,
+              the dashboard will show your own sessions.
+            </p>
+          </div>
+        )}
+
+        {/* Load / reload button */}
+        <div className="field-group">
           <button
             type="button"
             className="primary-btn"
             onClick={loadHistory}
-            disabled={loadingHistory}
+            disabled={loading}
           >
-            {loadingHistory ? "Loading…" : "SUDS History 불러오기"}
+            {loading ? "Loading…" : "Reload history"}
           </button>
+        </div>
 
-          {isAdmin && (
-            <>
+        {/* History summary */}
+        {currentHistoryUser && (
+          <p className="help-text">
+            Showing history for user: <b>{currentHistoryUser}</b> (
+            {sessions.length} session
+            {sessions.length === 1 ? "" : "s"})
+          </p>
+        )}
+
+        {/* Chart */}
+        {sessions.length > 0 && (
+          <div style={{ width: "100%", height: 320, marginTop: 16 }}>
+            <ResponsiveContainer>
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+                <YAxis domain={[0, 100]} />
+                <Tooltip />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="pre_suds"
+                  name="Pre SUDS"
+                  dot={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="post_suds"
+                  name="Post SUDS"
+                  dot={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* Table */}
+        {sessions.length > 0 && (
+          <div style={{ marginTop: 24, overflowX: "auto" }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Created at</th>
+                  <th>Session ID</th>
+                  <th>Pre SUDS</th>
+                  <th>Post SUDS</th>
+                  <th>Intensity</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sessions.map((s, idx) => (
+                  <tr key={s.session_id}>
+                    <td>{idx + 1}</td>
+                    <td>
+                      {(() => {
+                        try {
+                          return new Date(
+                            s.created_at
+                          ).toLocaleString();
+                        } catch {
+                          return s.created_at;
+                        }
+                      })()}
+                    </td>
+                    <td style={{ maxWidth: 220, wordBreak: "break-all" }}>
+                      {s.session_id}
+                    </td>
+                    <td>{s.pre_suds}</td>
+                    <td>
+                      {s.post_suds === null || s.post_suds === undefined
+                        ? "-"
+                        : s.post_suds}
+                    </td>
+                    <td>{s.intensity?.toFixed?.(2) ?? s.intensity}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Admin export buttons */}
+        {isAdmin && (
+          <div
+            className="field-group"
+            style={{ marginTop: 32, borderTop: "1px solid #eee", paddingTop: 16 }}
+          >
+            <h2>Admin exports</h2>
+            <p className="help-text">
+              As the admin user, you can export <b>all sessions from all users</b>.
+              JSON includes full story text. CSV includes SUDS scores and story
+              as a single line.
+            </p>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
               <button
                 type="button"
-                onClick={exportStoriesJson}
-                disabled={downloadingStories}
+                className="secondary-btn"
+                onClick={handleExportJson}
+                disabled={loading}
               >
-                {downloadingStories ? "Exporting…" : "Export Stories (JSON)"}
+                {loading ? "Working…" : "Download JSON (all sessions + stories)"}
               </button>
               <button
                 type="button"
-                onClick={exportSudsCsv}
-                disabled={downloadingSuds}
+                className="secondary-btn"
+                onClick={handleExportCsv}
+                disabled={loading}
               >
-                {downloadingSuds ? "Exporting…" : "Export SUDS (CSV)"}
+                {loading ? "Working…" : "Download CSV (SUDS + story)"}
               </button>
-            </>
-          )}
-        </div>
-
-        {statusMsg && <p className="status-text">{statusMsg}</p>}
-      </div>
-
-      {/* 중간: 그래프 + 세션 리스트 + 상세 */}
-      <div className="card" style={{ marginTop: 16 }}>
-        <div className="field-row" style={{ alignItems: "stretch", gap: 16 }}>
-          {/* 왼쪽: 그래프 */}
-          <div style={{ flex: 1, minHeight: 260 }}>
-            <h2>SUDS Trend</h2>
-            {chartData.length === 0 ? (
-              <p className="help-text">표시할 세션이 없습니다.</p>
-            ) : (
-              <ResponsiveContainer width="100%" height={240}>
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="idx" />
-                  <YAxis domain={[0, 100]} />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="pre_suds" name="Pre SUDS" />
-                  <Line type="monotone" dataKey="post_suds" name="Post SUDS" />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-
-          {/* 오른쪽: 세션 리스트 + 상세 */}
-          <div style={{ flex: 1, display: "flex", gap: 12 }}>
-            <div className="session-list" style={{ flex: 1 }}>
-              <h2>Sessions</h2>
-              {sessions.length === 0 ? (
-                <p className="help-text">세션이 없습니다.</p>
-              ) : (
-                sessions.map((s) => (
-                  <div
-                    key={s.session_id}
-                    className={
-                      selectedSession &&
-                      selectedSession.session_id === s.session_id
-                        ? "session-item selected"
-                        : "session-item"
-                    }
-                    onClick={() => loadSessionDetail(s.session_id)}
-                  >
-                    <div className="session-item-main">
-                      <div>
-                        <b>{s.session_id.slice(0, 8)}...</b>
-                      </div>
-                      <div>
-                        pre: {s.pre_suds} / post:{" "}
-                        {s.post_suds !== null && s.post_suds !== undefined
-                          ? s.post_suds
-                          : "-"}
-                      </div>
-                    </div>
-                    <div className="session-item-sub">
-                      <div>user: {s.user_id}</div>
-                      <div>{s.timestamp}</div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div className="session-detail" style={{ flex: 1 }}>
-              <h2>Session Detail</h2>
-              {loadingStory ? (
-                <p className="help-text">Loading story…</p>
-              ) : selectedSession ? (
-                <>
-                  <p className="help-text">
-                    <b>ID:</b> {selectedSession.session_id}
-                    <br />
-                    <b>User:</b> {selectedSession.user_id}
-                    <br />
-                    <b>Time:</b> {selectedSession.timestamp}
-                    <br />
-                    <b>pre:</b> {selectedSession.pre_suds} /{" "}
-                    <b>post:</b>{" "}
-                    {selectedSession.post_suds !== null &&
-                    selectedSession.post_suds !== undefined
-                      ? selectedSession.post_suds
-                      : "-"}
-                    <br />
-                    <b>Intensity:</b> {selectedSession.intensity}
-                  </p>
-                  <div className="story-box">
-                    {selectedSession.story ? (
-                      <p className="story-text">{selectedSession.story}</p>
-                    ) : (
-                      <p className="story-text">(story missing)</p>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <p className="help-text">
-                  왼쪽 리스트에서 세션을 선택하면 자세한 내용을 볼 수 있습니다.
-                </p>
-              )}
             </div>
           </div>
-        </div>
+        )}
+
+        {statusMsg && (
+          <p className="status-text" style={{ marginTop: 16 }}>
+            {statusMsg}
+          </p>
+        )}
       </div>
     </div>
   );
