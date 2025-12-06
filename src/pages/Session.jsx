@@ -6,19 +6,15 @@ function clamp(val, min, max) {
   return Math.min(max, Math.max(min, val));
 }
 
-// Safely resolve API base URL
-function resolveApiBase(passedBase) {
-  if (passedBase && typeof passedBase === "string") {
-    return passedBase.replace(/\/+$/, "");
-  }
-  if (import.meta.env && import.meta.env.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL.replace(/\/+$/, "");
-  }
-  return window.location.origin.replace(/\/+$/, "");
-}
+/* -----------------------------------------
+   🔴 HARD-CODED API BASE URL (Cloud Run URL)
+   👉 여기에 네 실제 Cloud Run URL 넣기
+----------------------------------------- */
+const API_BASE = "https://ptsd-backend-xxxxx-xx.an.r.appspot.com"; 
+// 반드시 마지막 슬래시(/) 없이 적어야 함!
 
-function Session({ apiBase }) {
-  const base = resolveApiBase(apiBase);
+function Session() {
+  const base = API_BASE;  
   console.log("Session apiBase resolved =", base);
 
   const [userId, setUserId] = useState(
@@ -39,16 +35,13 @@ function Session({ apiBase }) {
   const [sudsScale, setSudsScale] = useState({});
 
   useEffect(() => {
-    // Load SUDS scale from backend (for reference)
     const fetchScale = async () => {
       try {
         const res = await fetch(`${base}/api/suds/scale`);
         if (!res.ok) return;
         const data = await res.json();
         setSudsScale(data.scale || {});
-      } catch {
-        // Non-critical, ignore
-      }
+      } catch {}
     };
     fetchScale();
   }, [base]);
@@ -78,9 +71,6 @@ function Session({ apiBase }) {
     );
   };
 
-  // ---------------------------
-  // 1) Generate exposure story
-  // ---------------------------
   const generateStory = async () => {
     setStatusMsg("");
     setStory("");
@@ -118,10 +108,12 @@ function Session({ apiBase }) {
           intensity: clampedIntensity,
         }),
       });
+
       if (!res.ok) {
         const err = await res.json().catch(() => null);
         throw new Error(err?.detail || `HTTP ${res.status}`);
       }
+
       const data = await res.json();
       setStory(data.story || "");
       setSessionId(data.session_id || "");
@@ -136,9 +128,6 @@ function Session({ apiBase }) {
     }
   };
 
-  // ---------------------------
-  // 2) Save post-SUDS
-  // ---------------------------
   const savePostSuds = async () => {
     setStatusMsg("");
     setPostSaved(false);
@@ -177,10 +166,12 @@ function Session({ apiBase }) {
           post_suds: clampedPost,
         }),
       });
+
       if (!res.ok) {
         const err = await res.json().catch(() => null);
         throw new Error(err?.detail || `HTTP ${res.status}`);
       }
+
       const data = await res.json();
       setPostSaved(true);
       setStatusMsg(
@@ -204,7 +195,6 @@ function Session({ apiBase }) {
         exposure story, read it, and then record your post-exposure SUDS.
       </p>
 
-      {/* Top: User ID + SUDS + intensity */}
       <div className="card">
         <div className="field-group">
           <label>User ID</label>
@@ -256,7 +246,6 @@ function Session({ apiBase }) {
         {statusMsg && <p className="status-text">{statusMsg}</p>}
       </div>
 
-      {/* Generated story + Post SUDS input */}
       <div className="card" style={{ marginTop: 24 }}>
         <p className="help-text">
           Read the exposure story slowly, ideally more than once. You may feel
@@ -308,7 +297,6 @@ function Session({ apiBase }) {
         )}
       </div>
 
-      {/* SUDS Reference Table */}
       <div className="card" style={{ marginTop: 24 }}>
         <h2>SUDS Reference</h2>
         <SudsReferenceTable sudsScale={sudsScale} />
