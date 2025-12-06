@@ -3,7 +3,11 @@ import { useState } from "react";
 
 const ADMIN_USER_ID = "amygdala_admin";
 
-function Intake({ apiBase }) {
+// 🔴 Cloud Run backend URL (no trailing slash)
+const API_BASE =
+  "https://ptsd-backend-761910111968.asia-northeast3.run.app";
+
+function Intake() {
   const [mode, setMode] = useState("login"); // "login" | "register" | "update"
   const [userId, setUserId] = useState(
     localStorage.getItem("ptsd_user_id") || ""
@@ -14,49 +18,55 @@ function Intake({ apiBase }) {
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const isAdmin = userId.trim() === ADMIN_USER_ID;
+  const isAdminId = userId.trim() === ADMIN_USER_ID;
 
-  const saveAuthToLocalStorage = (uid, token) => {
-    if (uid) {
-      localStorage.setItem("ptsd_user_id", uid);
-      setUserId(uid);
-    }
-    if (token) {
-      localStorage.setItem("ptsd_token", token);
+  const saveAuthToLocalStorage = (uid, token, isAdmin) => {
+    if (uid) localStorage.setItem("ptsd_user_id", uid);
+    if (token) localStorage.setItem("ptsd_token", token);
+    if (typeof isAdmin === "boolean") {
+      localStorage.setItem("ptsd_is_admin", isAdmin ? "1" : "0");
     }
   };
 
+  const clearPasswordFields = () => {
+    setPassword("");
+    setAdminPw("");
+  };
+
   // ---------------------------
-  // 1) 회원가입 (/api/register)
+  // 1) Register (new user)
   // ---------------------------
   const handleRegister = async () => {
     setMsg("");
-    if (!userId || !password || !trauma) {
-      setMsg("❌ user id, password, trauma 내용을 모두 입력해주세요.");
+    const trimmedId = userId.trim();
+
+    if (!trimmedId || !password || !trauma) {
+      setMsg("❌ Please enter user ID, password, and trauma narrative.");
       return;
     }
 
     setLoading(true);
     try {
-      const res = await fetch(`${apiBase}/api/register`, {
+      const res = await fetch(`${API_BASE}/api/register`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          user_id: userId,
+          user_id: trimmedId,
           password,
           trauma_text: trauma,
         }),
       });
+
       if (!res.ok) {
         const err = await res.json().catch(() => null);
         throw new Error(err?.detail || `HTTP ${res.status}`);
       }
+
       const data = await res.json();
-      saveAuthToLocalStorage(data.user_id, data.token);
-      setMsg("✅ 회원가입 및 초기 trauma 저장이 완료되었습니다.");
-      setPassword("");
+      // main.py: return { status, user_id, token, is_admin }
+      saveAuthToLocalStorage(data.user_id, data.token, data.is_admin);
+      setMsg("✅ Registered successfully and saved initial trauma narrative.");
+      clearPasswordFields();
     } catch (err) {
       setMsg(`❌ Register failed: ${err.message}`);
     } finally {
@@ -65,39 +75,38 @@ function Intake({ apiBase }) {
   };
 
   // ---------------------------
-  // 2) 로그인 (/api/login)
+  // 2) Login (ID/PW)
   // ---------------------------
   const handleLogin = async () => {
     setMsg("");
-    if (!userId || !password) {
-      setMsg("❌ user id와 password를 입력해주세요.");
+    const trimmedId = userId.trim();
+
+    if (!trimmedId || !password) {
+      setMsg("❌ Please enter user ID and password.");
       return;
     }
 
     setLoading(true);
     try {
-      const res = await fetch(`${apiBase}/api/login`, {
+      const res = await fetch(`${API_BASE}/api/login`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          user_id: userId,
+          user_id: trimmedId,
           password,
         }),
       });
+
       if (!res.ok) {
         const err = await res.json().catch(() => null);
         throw new Error(err?.detail || `HTTP ${res.status}`);
       }
+
       const data = await res.json();
-      saveAuthToLocalStorage(data.user_id, data.token);
-      setMsg(
-        data.is_admin
-          ? "✅ Admin 계정으로 로그인되었습니다."
-          : "✅ 로그인에 성공했습니다."
-      );
-      setPassword("");
+      // { status, user_id, token, is_admin }
+      saveAuthToLocalStorage(data.user_id, data.token, data.is_admin);
+      setMsg("✅ Logged in successfully.");
+      clearPasswordFields();
     } catch (err) {
       setMsg(`❌ Login failed: ${err.message}`);
     } finally {
@@ -106,44 +115,50 @@ function Intake({ apiBase }) {
   };
 
   // ---------------------------
-  // 3) (기존 호환) trauma 업데이트 (/api/intake)
+  // 3) Update trauma narrative
+  //    (uses /api/intake with X-Auth-Token)
   // ---------------------------
   const handleUpdateTrauma = async () => {
     setMsg("");
-    if (!userId) {
-      setMsg("❌ User ID를 먼저 입력해주세요.");
-      return;
-    }
-    if (!trauma) {
-      setMsg("❌ 업데이트할 trauma 내용을 입력해주세요.");
+    const trimmedId = userId.trim();
+
+    if (!trimmedId || !trauma) {
+      setMsg("❌ Please enter user ID and trauma narrative.");
       return;
     }
 
     const token = localStorage.getItem("ptsd_token");
     if (!token) {
-      setMsg("❌ 토큰이 없습니다. 먼저 회원가입/로그인 또는 초기 intake를 완료하세요.");
+      setMsg("❌ You must log in first to update your trauma narrative.");
       return;
     }
 
     setLoading(true);
     try {
-      const res = await fetch(`${apiBase}/api/intake`, {
+      const res = await fetch(`${API_BASE}/api/intake`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "X-Auth-Token": token,
         },
         body: JSON.stringify({
-          user_id: userId,
+          user_id: trimmedId,
           trauma_text: trauma,
         }),
       });
+
       if (!res.ok) {
         const err = await res.json().catch(() => null);
         throw new Error(err?.detail || `HTTP ${res.status}`);
       }
+
       const data = await res.json();
-      setMsg(`✅ Trauma narrative가 업데이트되었습니다. (${data.message})`);
+      // { status, user_id, message, ... }
+      setMsg(
+        data.message
+          ? `✅ Trauma narrative updated: ${data.message}`
+          : "✅ Trauma narrative updated."
+      );
     } catch (err) {
       setMsg(`❌ Trauma update failed: ${err.message}`);
     } finally {
@@ -152,105 +167,109 @@ function Intake({ apiBase }) {
   };
 
   // ---------------------------
-  // 4) ADMIN 로그인 (기존 방식 유지)
+  // 4) Admin login helper (optional)
+  //    Just uses /api/login with admin ID/PW
   // ---------------------------
   const handleAdminLogin = async () => {
     setMsg("");
-    if (!isAdmin) {
-      setMsg("❌ Admin ID(amygdala_admin)를 입력해야 합니다.");
+    if (!isAdminId) {
+      setMsg(`❌ User ID must be "${ADMIN_USER_ID}" for admin login.`);
       return;
     }
     if (!adminPw) {
-      setMsg("❌ Admin password를 입력해주세요.");
+      setMsg("❌ Please enter admin password.");
       return;
     }
 
     setLoading(true);
     try {
-      const res = await fetch(`${apiBase}/api/intake`, {
+      const res = await fetch(`${API_BASE}/api/login`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Admin-Password": adminPw,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: ADMIN_USER_ID,
-          trauma_text: "",
+          password: adminPw,
         }),
       });
+
       if (!res.ok) {
         const err = await res.json().catch(() => null);
         throw new Error(err?.detail || `HTTP ${res.status}`);
       }
+
       const data = await res.json();
-      saveAuthToLocalStorage(data.user_id, data.token);
-      setMsg("✅ Admin 토큰이 발급되었습니다.");
+      saveAuthToLocalStorage(data.user_id, data.token, data.is_admin);
+      setMsg("✅ Admin login successful. Token issued.");
+      clearPasswordFields();
     } catch (err) {
-      setMsg(`❌ Admin auth failed: ${err.message}`);
+      setMsg(`❌ Admin login failed: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const onChangeUserId = (e) => {
-    setUserId(e.target.value);
-    localStorage.setItem("ptsd_user_id", e.target.value);
-  };
-
+  // ---------------------------
+  // UI
+  // ---------------------------
   return (
     <div className="page">
       <h1>Intake / Account</h1>
       <p className="page-intro">
-        이 페이지에서는 계정을 만들고(회원가입), 로그인하며, 필요하다면
-        trauma narrative를 업데이트할 수 있습니다.
+        On this page, you can create an account, log in, and update your trauma
+        narrative if needed.
       </p>
 
-      {/* 공통: User ID 입력 */}
       <div className="card">
+        {/* User ID */}
         <div className="field-group">
           <label>User ID</label>
           <input
             type="text"
             value={userId}
-            onChange={onChangeUserId}
-            placeholder="예: user123"
+            onChange={(e) => setUserId(e.target.value)}
+            placeholder="e.g., jihan1008"
           />
         </div>
 
-        {/* 모드 선택 */}
+        {/* Mode selector */}
         <div className="field-group">
           <label>Mode</label>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div className="segmented-control">
             <button
               type="button"
-              className={mode === "login" ? "primary-btn" : ""}
+              className={mode === "login" ? "seg-button active" : "seg-button"}
               onClick={() => setMode("login")}
             >
-              로그인
+              Login
             </button>
             <button
               type="button"
-              className={mode === "register" ? "primary-btn" : ""}
+              className={
+                mode === "register" ? "seg-button active" : "seg-button"
+              }
               onClick={() => setMode("register")}
             >
-              회원가입(신규 유저)
+              Register (new user)
             </button>
             <button
               type="button"
-              className={mode === "update" ? "primary-btn" : ""}
+              className={
+                mode === "update" ? "seg-button active" : "seg-button"
+              }
               onClick={() => setMode("update")}
             >
-              Trauma 업데이트
+              Update trauma narrative
             </button>
           </div>
           <p className="help-text">
-            - 신규 유저: <b>회원가입</b> 탭에서 ID/PW + 초기 trauma 입력
-            <br />
-            - 기존 유저: <b>로그인</b> 후 필요 시 <b>Trauma 업데이트</b> 사용
+            • New users: choose <b>Register (new user)</b> and enter ID / PW and
+            initial trauma narrative. <br />
+            • Existing users: <b>Login</b> first, then use{" "}
+            <b>Update trauma narrative</b> if you want to revise it.
           </p>
         </div>
 
-        {/* 비밀번호 입력 (로그인/회원가입 공통) */}
+        {/* Password for login/register */}
         {(mode === "login" || mode === "register") && (
           <div className="field-group">
             <label>Password</label>
@@ -258,29 +277,29 @@ function Intake({ apiBase }) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="비밀번호"
             />
           </div>
         )}
 
-        {/* Trauma 입력 (회원가입 / 업데이트에서 사용) */}
-        {(mode === "register" || mode === "update") && (
+        {/* Trauma narrative (for register/update) */}
+        {mode !== "login" && (
           <div className="field-group">
             <label>Trauma narrative</label>
             <textarea
-              rows={6}
+              rows={8}
               value={trauma}
               onChange={(e) => setTrauma(e.target.value)}
-              placeholder="노출치료에 사용할 trauma 내용을 구체적으로 적어주세요."
+              placeholder="Describe the event in as much concrete detail as you feel comfortable: place, people, sensory details, emotions, etc."
             />
             <p className="help-text">
-              너무 짧은 한 줄보다는, 당시 상황(장소, 사람, 감각, 감정)을 최대한
-              구체적으로 적을수록 노출 스토리가 더 정밀해집니다.
+              Longer, more concrete descriptions (who, where, what you saw, heard,
+              felt) tend to produce more precise exposure stories. You can still
+              keep it within your safety limits.
             </p>
           </div>
         )}
 
-        {/* 액션 버튼 */}
+        {/* Primary actions */}
         <div className="field-group">
           {mode === "register" && (
             <button
@@ -289,7 +308,7 @@ function Intake({ apiBase }) {
               onClick={handleRegister}
               disabled={loading}
             >
-              {loading ? "Processing…" : "회원가입 + 초기 Trauma 저장"}
+              {loading ? "Processing…" : "Register + save initial trauma"}
             </button>
           )}
           {mode === "login" && (
@@ -299,7 +318,7 @@ function Intake({ apiBase }) {
               onClick={handleLogin}
               disabled={loading}
             >
-              {loading ? "Processing…" : "로그인"}
+              {loading ? "Processing…" : "Login"}
             </button>
           )}
           {mode === "update" && (
@@ -309,40 +328,38 @@ function Intake({ apiBase }) {
               onClick={handleUpdateTrauma}
               disabled={loading}
             >
-              {loading ? "Processing…" : "Trauma 업데이트"}
+              {loading ? "Processing…" : "Update trauma narrative"}
             </button>
           )}
         </div>
-      </div>
 
-      {/* Admin 전용 카드 */}
-      {isAdmin && (
-        <div className="card" style={{ marginTop: 16 }}>
-          <h2>Admin Login</h2>
+        {/* Admin section (optional) */}
+        <div className="card" style={{ marginTop: 24 }}>
+          <h2>Admin login</h2>
+          <p className="help-text">
+            Admin ID is <b>{ADMIN_USER_ID}</b>. Use this only for the dashboard
+            and CSV export.
+          </p>
           <div className="field-group">
-            <label>Admin Password</label>
+            <label>Admin password</label>
             <input
               type="password"
               value={adminPw}
               onChange={(e) => setAdminPw(e.target.value)}
-              placeholder="ADMIN_PASSWORD 환경변수에 설정한 값"
             />
-            <p className="help-text">
-              Admin 계정은 전체 세션/스토리 export 기능을 사용할 수 있습니다.
-            </p>
           </div>
           <button
             type="button"
-            className="primary-btn"
+            className="secondary-btn"
             onClick={handleAdminLogin}
             disabled={loading}
           >
-            {loading ? "Processing…" : "Admin 토큰 발급"}
+            {loading ? "Processing…" : "Admin login (issue token)"}
           </button>
         </div>
-      )}
 
-      {msg && <p className="status-text">{msg}</p>}
+        {msg && <p className="status-text">{msg}</p>}
+      </div>
     </div>
   );
 }
