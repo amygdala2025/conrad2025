@@ -10,7 +10,7 @@ function clamp(val, min, max) {
    🔴 HARD-CODED API BASE URL (Cloud Run URL)
    👉 여기에 네 실제 Cloud Run URL 넣기
 ----------------------------------------- */
-const API_BASE = "https://ptsd-backend-xxxxx-xx.an.r.appspot.com"; 
+const API_BASE = "https://ptsd-backend-761910111968.asia-northeast3.run.app"; 
 // 반드시 마지막 슬래시(/) 없이 적어야 함!
 
 function Session() {
@@ -306,3 +306,4 @@ function Session() {
 }
 
 export default Session;
+
