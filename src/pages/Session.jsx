@@ -14,47 +14,47 @@ function Session({ apiBase }) {
   const [intensity, setIntensity] = useState(0.8);
   const [story, setStory] = useState("");
   const [sessionId, setSessionId] = useState("");
-  const [postSuds, setPostSuds] = useState(0);
+  const [statusMsg, setStatusMsg] = useState("");
+  const [loadingStory, setLoadingStory] = useState(false);
 
+  const [postSuds, setPostSuds] = useState(0);
   const [hasReadStory, setHasReadStory] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isSavingPost, setIsSavingPost] = useState(false);
+  const [savingPost, setSavingPost] = useState(false);
   const [postSaved, setPostSaved] = useState(false);
 
   const [sudsScale, setSudsScale] = useState({});
-  const [statusMsg, setStatusMsg] = useState("");
 
-  // Load SUDS scale
   useEffect(() => {
-    const loadScale = async () => {
+    // 백엔드에서 SUDS scale 가져오기 (참고용)
+    const fetchScale = async () => {
       try {
         const res = await fetch(`${apiBase}/api/suds/scale`);
+        if (!res.ok) return;
         const data = await res.json();
         setSudsScale(data.scale || {});
       } catch {
-        // silently ignore (nice-to-have only)
+        // 무시 (필수는 아님)
       }
     };
-    loadScale();
+    fetchScale();
   }, [apiBase]);
 
-  // Persist userId in localStorage
-  useEffect(() => {
-    if (userId) {
-      localStorage.setItem("ptsd_user_id", userId);
-    }
-  }, [userId]);
+  const onChangeUserId = (e) => {
+    setUserId(e.target.value);
+    localStorage.setItem("ptsd_user_id", e.target.value);
+  };
 
-  const renderScaleHint = (value) => {
-    if (!sudsScale || Object.keys(sudsScale).length === 0) return null;
-    const keys = Object.keys(sudsScale).map((k) => Number(k));
+  const describeSuds = (value) => {
+    if (!sudsScale) return null;
+    const keys = Object.keys(sudsScale).map((k) => parseInt(k, 10));
+    if (keys.length === 0) return null;
     let closest = keys[0];
     let bestDiff = Math.abs(value - closest);
-    for (const s of keys) {
-      const diff = Math.abs(value - s);
+    for (const k of keys) {
+      const diff = Math.abs(value - k);
       if (diff < bestDiff) {
         bestDiff = diff;
-        closest = s;
+        closest = k;
       }
     }
     return (
@@ -65,7 +65,7 @@ function Session({ apiBase }) {
   };
 
   // ---------------------------
-  // 1) Generate Story
+  // 1) Story 생성 요청
   // ---------------------------
   const generateStory = async () => {
     setStatusMsg("");
@@ -75,17 +75,20 @@ function Session({ apiBase }) {
     setPostSaved(false);
 
     if (!userId) {
-      setStatusMsg("❌ Please enter a User ID first.");
+      setStatusMsg("❌ User ID를 먼저 입력해주세요.");
       return;
     }
 
     const token = localStorage.getItem("ptsd_token");
     if (!token) {
-      setStatusMsg("❌ No auth token found. Please complete the Intake step first.");
+      setStatusMsg("❌ 토큰이 없습니다. Intake/로그인 단계부터 진행해주세요.");
       return;
     }
 
-    setIsGenerating(true);
+    const clampedPre = clamp(preSuds, 0, 100);
+    const clampedIntensity = clamp(intensity, 0.2, 1.5);
+
+    setLoadingStory(true);
     try {
       const res = await fetch(`${apiBase}/api/story`, {
         method: "POST",
@@ -95,58 +98,53 @@ function Session({ apiBase }) {
         },
         body: JSON.stringify({
           user_id: userId,
-          pre_suds: clamp(preSuds, 0, 100),
-          intensity,
+          pre_suds: clampedPre,
+          intensity: clampedIntensity,
         }),
       });
-
       if (!res.ok) {
-        const errJson = await res.json().catch(() => null);
-        const msg = errJson?.detail || `HTTP ${res.status} ${res.statusText}`;
-        throw new Error(msg);
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.detail || `HTTP ${res.status}`);
       }
-
       const data = await res.json();
       setStory(data.story || "");
       setSessionId(data.session_id || "");
-      setStatusMsg(
-        "✔ Story generated. Please read it slowly from start to finish."
-      );
+      setIntensity(data.intensity ?? clampedIntensity);
+      setStatusMsg("✅ 노출 스토리가 생성되었습니다. 천천히 끝까지 읽어주세요.");
     } catch (err) {
-      setStatusMsg(
-        `❌ Failed to start story session: ${
-          err?.message ? err.message : String(err)
-        }`
-      );
+      setStatusMsg(`❌ Failed to generate story: ${err.message}`);
     } finally {
-      setIsGenerating(false);
+      setLoadingStory(false);
     }
   };
 
   // ---------------------------
-  // 2) Save Post-SUDS
+  // 2) Post SUDS 저장
   // ---------------------------
   const savePostSuds = async () => {
+    setStatusMsg("");
+    setPostSaved(false);
+
     if (!sessionId) {
-      setStatusMsg("❌ Please generate a story first.");
+      setStatusMsg("❌ 먼저 스토리를 생성해야 합니다.");
       return;
     }
     if (!hasReadStory) {
       setStatusMsg(
-        "❌ Please check the box confirming you have read the story all the way through."
+        "❌ 스토리를 끝까지 읽었다는 체크박스를 먼저 확인해주세요."
       );
       return;
     }
 
-    const clampedPost = clamp(postSuds, 0, 100);
     const token = localStorage.getItem("ptsd_token");
     if (!token) {
-      setStatusMsg("❌ No auth token found.");
+      setStatusMsg("❌ 토큰이 없습니다. 다시 로그인/Intake를 해주세요.");
       return;
     }
 
-    setIsSavingPost(true);
-    setPostSaved(false);
+    const clampedPost = clamp(postSuds, 0, 100);
+
+    setSavingPost(true);
     try {
       const res = await fetch(`${apiBase}/api/suds/post`, {
         method: "POST",
@@ -159,190 +157,142 @@ function Session({ apiBase }) {
           post_suds: clampedPost,
         }),
       });
-
       if (!res.ok) {
-        const errJson = await res.json().catch(() => null);
-        const msg = errJson?.detail || `HTTP ${res.status}`;
-        throw new Error(msg);
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.detail || `HTTP ${res.status}`);
       }
-
-      await res.json();
-      setStatusMsg("✔ Post-session SUDS has been saved.");
+      const data = await res.json();
       setPostSaved(true);
-    } catch (e) {
-      setStatusMsg("❌ Failed to save post-SUDS: " + e.message);
+      setStatusMsg(
+        `✅ Post SUDS 저장 완료. (pre: ${data.pre_suds}, post: ${data.post_suds}, next intensity: ${data.next_intensity.toFixed(
+          2
+        )})`
+      );
+      setIntensity(data.next_intensity);
+    } catch (err) {
+      setStatusMsg(`❌ Failed to save post-SUDS: ${err.message}`);
     } finally {
-      setIsSavingPost(false);
+      setSavingPost(false);
     }
   };
 
   return (
-    <div>
-      <h2>Session – Exposure Story</h2>
+    <div className="page">
+      <h1>Session</h1>
       <p className="page-intro">
-        At each session you first record your current SUDS score, then read a
-        trauma-based exposure story, and finally rate your SUDS again. These
-        data are used to adjust the story intensity for the next session.
+        이 페이지에서는 현재 SUDS와 강도를 설정하고, 노출 스토리를 생성한 뒤
+        읽고 나서 post SUDS를 기록합니다.
       </p>
 
+      {/* 상단: User ID + SUDS + intensity 설정 */}
       <div className="card">
-        {/* User ID */}
         <div className="field-group">
           <label>User ID</label>
           <input
             type="text"
             value={userId}
-            placeholder="e.g., 0001"
-            onChange={(e) => setUserId(e.target.value)}
+            onChange={onChangeUserId}
+            placeholder="Intake에서 사용한 User ID"
           />
         </div>
 
-        {/* Pre-session SUDS */}
         <div className="field-group">
-          <label>1. Pre-session SUDS (0–100)</label>
-          <p className="help-text">
-            Please rate your current level of anxiety/tension from 0 to 100.
-          </p>
-
+          <label>현재 SUDS (pre)</label>
           <input
-            type="range"
-            min="0"
-            max="100"
+            type="number"
+            min={0}
+            max={100}
             value={preSuds}
-            onChange={(e) => setPreSuds(clamp(Number(e.target.value), 0, 100))}
+            onChange={(e) => setPreSuds(Number(e.target.value) || 0)}
           />
-          <div className="range-labels">
-            <span>0 = totally calm</span>
-            <span>100 = worst distress you can imagine</span>
-          </div>
-
-          <div className="range-number">
-            <input
-              type="number"
-              min="0"
-              max="100"
-              value={preSuds}
-              onChange={(e) =>
-                setPreSuds(clamp(Number(e.target.value || 0), 0, 100))
-              }
-            />
-            <span>pts</span>
-          </div>
-
-          {renderScaleHint(preSuds)}
-
-          <div className="suds-help-block">
-            <details>
-              <summary>
-                What do these numbers mean? (View example SUDS scale)
-              </summary>
-              <SudsReferenceTable />
-            </details>
-          </div>
+          {describeSuds(preSuds)}
         </div>
 
-        {/* Story Intensity */}
         <div className="field-group">
-          <label>2. Story Intensity (LLM temperature)</label>
-          <p className="help-text">
-            Controls how intense the exposure story feels. Higher values produce
-            freer and more emotionally intense stories.
-          </p>
-
+          <label>노출 강도 (intensity, 0.2 ~ 1.5)</label>
           <input
-            type="range"
-            min="0.2"
-            max="1.5"
-            step="0.02"
+            type="number"
+            step="0.1"
+            min={0.2}
+            max={1.5}
             value={intensity}
-            onChange={(e) => setIntensity(Number(e.target.value))}
+            onChange={(e) => setIntensity(Number(e.target.value) || 0.8)}
           />
           <p className="help-text">
-            Current intensity: {intensity.toFixed(2)} – Higher values → more
-            varied and emotionally vivid stories.
+            1.0을 기준으로 0.2에 가까울수록 부드럽고, 1.5에 가까울수록 조금 더
+            강한 노출입니다. (실제 temperature는 백엔드에서 안전하게 조절)
           </p>
         </div>
 
-        {/* Generate Story button */}
-        <div className="field-group">
-          <button
-            type="button"
-            className="primary-btn"
-            onClick={generateStory}
-            disabled={isGenerating}
-          >
-            {isGenerating ? "Generating..." : "Generate Story"}
-          </button>
-        </div>
+        <button
+          type="button"
+          className="primary-btn"
+          onClick={generateStory}
+          disabled={loadingStory}
+        >
+          {loadingStory ? "Generating…" : "노출 스토리 생성"}
+        </button>
 
         {statusMsg && <p className="status-text">{statusMsg}</p>}
       </div>
 
-      {/* Story area + Post SUDS */}
-      {sessionId && (
-        <div className="card" style={{ marginTop: 24 }}>
-          <h3>Exposure Story</h3>
-          <p className="help-text">
-            Please read the story slowly, paying attention to any emotions and
-            body sensations that arise as you go.
-          </p>
+      {/* 생성된 스토리 + Post SUDS 입력 */}
+      <div className="card" style={{ marginTop: 24 }}>
+        <p className="help-text">
+          노출 스토리를 천천히, 가능하면 여러 번 눈으로 읽어보세요. 중간에
+          회피하고 싶어질 수 있지만, 가능한 한 끝까지 머물러 보는 것이
+          노출치료의 핵심입니다.
+        </p>
 
-          <div className="story-box">
-            {story ? <p className="story-text">{story}</p> : <p>(story missing)</p>}
-          </div>
-
-          <div className="field-group" style={{ marginTop: 16 }}>
-            <label>
-              <input
-                type="checkbox"
-                checked={hasReadStory}
-                onChange={(e) => setHasReadStory(e.target.checked)}
-              />{" "}
-              I have read the story from beginning to end.
-            </label>
-          </div>
-
-          <div className="field-group">
-            <label>3. Post-session SUDS (0–100)</label>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={postSuds}
-              onChange={(e) =>
-                setPostSuds(clamp(Number(e.target.value), 0, 100))
-              }
-            />
-            <div className="range-number">
-              <input
-                type="number"
-                min="0"
-                max="100"
-                value={postSuds}
-                onChange={(e) =>
-                  setPostSuds(clamp(Number(e.target.value || 0), 0, 100))
-                }
-              />
-              <span>pts</span>
-            </div>
-          </div>
-
-          <div className="field-group">
-            <button
-              type="button"
-              className="primary-btn"
-              onClick={savePostSuds}
-              disabled={isSavingPost}
-            >
-              {postSaved
-                ? "Saved ✅"
-                : isSavingPost
-                ? "Saving..."
-                : "Save Post SUDS"}
-            </button>
-          </div>
+        <div className="story-box">
+          {story ? <p className="story-text">{story}</p> : <p>(story missing)</p>}
         </div>
-      )}
+
+        <div className="field-group" style={{ marginTop: 16 }}>
+          <label>
+            <input
+              type="checkbox"
+              checked={hasReadStory}
+              onChange={(e) => setHasReadStory(e.target.checked)}
+            />{" "}
+            스토리를 처음부터 끝까지 읽었습니다.
+          </label>
+        </div>
+
+        <div className="field-group">
+          <label>노출 후 SUDS (post)</label>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={postSuds}
+            onChange={(e) => setPostSuds(Number(e.target.value) || 0)}
+          />
+          {describeSuds(postSuds)}
+        </div>
+
+        <button
+          type="button"
+          className="primary-btn"
+          onClick={savePostSuds}
+          disabled={savingPost}
+        >
+          {savingPost ? "Saving…" : "Post SUDS 저장"}
+        </button>
+
+        {postSaved && (
+          <p className="help-text">
+            저장이 완료되었습니다. 다음 세션에서는 제안된 intensity를 참고해
+            주세요.
+          </p>
+        )}
+      </div>
+
+      {/* SUDS Reference Table (시각화용) */}
+      <div className="card" style={{ marginTop: 24 }}>
+        <h2>SUDS Reference</h2>
+        <SudsReferenceTable sudsScale={sudsScale} />
+      </div>
     </div>
   );
 }
