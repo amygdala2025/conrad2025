@@ -3,7 +3,7 @@ import { useState } from "react";
 
 const ADMIN_USER_ID = "amygdala_admin";
 
-// 🔴 Cloud Run backend URL (no trailing slash)
+// Cloud Run backend URL (no trailing slash)
 const API_BASE =
   "https://ptsd-backend-761910111968.asia-northeast3.run.app";
 
@@ -20,21 +20,19 @@ function Intake() {
 
   const isAdminId = userId.trim() === ADMIN_USER_ID;
 
-  const saveAuthToLocalStorage = (uid, token, isAdmin) => {
+  const saveAuthToLocalStorage = (uid, token) => {
     if (uid) localStorage.setItem("ptsd_user_id", uid);
     if (token) localStorage.setItem("ptsd_token", token);
-    if (typeof isAdmin === "boolean") {
-      localStorage.setItem("ptsd_is_admin", isAdmin ? "1" : "0");
-    }
   };
 
-  const clearPasswordFields = () => {
+  const clearPasswords = () => {
     setPassword("");
     setAdminPw("");
   };
 
   // ---------------------------
   // 1) Register (new user)
+  //    → POST /api/intake  (main.py와 정확히 일치)
   // ---------------------------
   const handleRegister = async () => {
     setMsg("");
@@ -47,13 +45,13 @@ function Intake() {
 
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/register`, {
+      const res = await fetch(`${API_BASE}/api/intake`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: trimmedId,
           password,
-          trauma_text: trauma,
+          trauma_narrative: trauma, // 🔑 필드 이름 main.py와 동일
         }),
       });
 
@@ -62,11 +60,10 @@ function Intake() {
         throw new Error(err?.detail || `HTTP ${res.status}`);
       }
 
-      const data = await res.json();
-      // main.py: return { status, user_id, token, is_admin }
-      saveAuthToLocalStorage(data.user_id, data.token, data.is_admin);
+      const data = await res.json(); // { user_id, token }
+      saveAuthToLocalStorage(data.user_id, data.token);
       setMsg("✅ Registered successfully and saved initial trauma narrative.");
-      clearPasswordFields();
+      clearPasswords();
     } catch (err) {
       setMsg(`❌ Register failed: ${err.message}`);
     } finally {
@@ -75,7 +72,7 @@ function Intake() {
   };
 
   // ---------------------------
-  // 2) Login (ID/PW)
+  // 2) Login → POST /api/login
   // ---------------------------
   const handleLogin = async () => {
     setMsg("");
@@ -102,11 +99,10 @@ function Intake() {
         throw new Error(err?.detail || `HTTP ${res.status}`);
       }
 
-      const data = await res.json();
-      // { status, user_id, token, is_admin }
-      saveAuthToLocalStorage(data.user_id, data.token, data.is_admin);
+      const data = await res.json(); // { user_id, token }
+      saveAuthToLocalStorage(data.user_id, data.token);
       setMsg("✅ Logged in successfully.");
-      clearPasswordFields();
+      clearPasswords();
     } catch (err) {
       setMsg(`❌ Login failed: ${err.message}`);
     } finally {
@@ -115,60 +111,18 @@ function Intake() {
   };
 
   // ---------------------------
-  // 3) Update trauma narrative
-  //    (uses /api/intake with X-Auth-Token)
+  // 3) Update trauma (아직 백엔드 엔드포인트 없음)
+  //    → 일단 안내 메시지만
   // ---------------------------
   const handleUpdateTrauma = async () => {
-    setMsg("");
-    const trimmedId = userId.trim();
-
-    if (!trimmedId || !trauma) {
-      setMsg("❌ Please enter user ID and trauma narrative.");
-      return;
-    }
-
-    const token = localStorage.getItem("ptsd_token");
-    if (!token) {
-      setMsg("❌ You must log in first to update your trauma narrative.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/intake`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Auth-Token": token,
-        },
-        body: JSON.stringify({
-          user_id: trimmedId,
-          trauma_text: trauma,
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(err?.detail || `HTTP ${res.status}`);
-      }
-
-      const data = await res.json();
-      // { status, user_id, message, ... }
-      setMsg(
-        data.message
-          ? `✅ Trauma narrative updated: ${data.message}`
-          : "✅ Trauma narrative updated."
-      );
-    } catch (err) {
-      setMsg(`❌ Trauma update failed: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
+    setMsg(
+      "ℹ️ Updating trauma narrative is not implemented on the backend yet. " +
+        "For now, please register a new test user if you want to try a different narrative."
+    );
   };
 
   // ---------------------------
-  // 4) Admin login helper (optional)
-  //    Just uses /api/login with admin ID/PW
+  // 4) Admin login helper
   // ---------------------------
   const handleAdminLogin = async () => {
     setMsg("");
@@ -177,7 +131,7 @@ function Intake() {
       return;
     }
     if (!adminPw) {
-      setMsg("❌ Please enter admin password.");
+      setMsg("❌ Please enter the admin password.");
       return;
     }
 
@@ -197,10 +151,10 @@ function Intake() {
         throw new Error(err?.detail || `HTTP ${res.status}`);
       }
 
-      const data = await res.json();
-      saveAuthToLocalStorage(data.user_id, data.token, data.is_admin);
+      const data = await res.json(); // { user_id, token }
+      saveAuthToLocalStorage(data.user_id, data.token);
       setMsg("✅ Admin login successful. Token issued.");
-      clearPasswordFields();
+      clearPasswords();
     } catch (err) {
       setMsg(`❌ Admin login failed: ${err.message}`);
     } finally {
@@ -215,8 +169,8 @@ function Intake() {
     <div className="page">
       <h1>Intake / Account</h1>
       <p className="page-intro">
-        On this page, you can create an account, log in, and update your trauma
-        narrative if needed.
+        On this page, you can create an account, log in, and (in future
+        updates) edit your trauma narrative.
       </p>
 
       <div className="card">
@@ -263,9 +217,10 @@ function Intake() {
           </div>
           <p className="help-text">
             • New users: choose <b>Register (new user)</b> and enter ID / PW and
-            initial trauma narrative. <br />
-            • Existing users: <b>Login</b> first, then use{" "}
-            <b>Update trauma narrative</b> if you want to revise it.
+            initial trauma narrative.
+            <br />
+            • Existing users: <b>Login</b> with your ID / PW. Trauma editing
+            will be added in a later version.
           </p>
         </div>
 
@@ -281,8 +236,8 @@ function Intake() {
           </div>
         )}
 
-        {/* Trauma narrative (for register/update) */}
-        {mode !== "login" && (
+        {/* Trauma narrative (register only, for now) */}
+        {mode === "register" && (
           <div className="field-group">
             <label>Trauma narrative</label>
             <textarea
@@ -292,9 +247,9 @@ function Intake() {
               placeholder="Describe the event in as much concrete detail as you feel comfortable: place, people, sensory details, emotions, etc."
             />
             <p className="help-text">
-              Longer, more concrete descriptions (who, where, what you saw, heard,
-              felt) tend to produce more precise exposure stories. You can still
-              keep it within your safety limits.
+              More concrete descriptions (where, who, what you saw, heard, felt)
+              help the model generate a more precise exposure story, while you
+              can still respect your own limits.
             </p>
           </div>
         )}
@@ -328,12 +283,12 @@ function Intake() {
               onClick={handleUpdateTrauma}
               disabled={loading}
             >
-              {loading ? "Processing…" : "Update trauma narrative"}
+              Update trauma narrative (info)
             </button>
           )}
         </div>
 
-        {/* Admin section (optional) */}
+        {/* Admin section */}
         <div className="card" style={{ marginTop: 24 }}>
           <h2>Admin login</h2>
           <p className="help-text">
