@@ -30,10 +30,7 @@ function Intake() {
     setAdminPw("");
   };
 
-  // ---------------------------
-  // 1) Register (new user)
-  //    → POST /api/intake  (main.py와 정확히 일치)
-  // ---------------------------
+  // 1) Register (new user) → POST /api/intake
   const handleRegister = async () => {
     setMsg("");
     const trimmedId = userId.trim();
@@ -51,7 +48,7 @@ function Intake() {
         body: JSON.stringify({
           user_id: trimmedId,
           password,
-          trauma_narrative: trauma, // 🔑 필드 이름 main.py와 동일
+          trauma_narrative: trauma,
         }),
       });
 
@@ -71,9 +68,7 @@ function Intake() {
     }
   };
 
-  // ---------------------------
   // 2) Login → POST /api/login
-  // ---------------------------
   const handleLogin = async () => {
     setMsg("");
     const trimmedId = userId.trim();
@@ -110,20 +105,55 @@ function Intake() {
     }
   };
 
-  // ---------------------------
-  // 3) Update trauma (아직 백엔드 엔드포인트 없음)
-  //    → 일단 안내 메시지만
-  // ---------------------------
+  // 3) Update trauma narrative → PUT /api/intake (requires X-Auth-Token)
   const handleUpdateTrauma = async () => {
-    setMsg(
-      "ℹ️ Updating trauma narrative is not implemented on the backend yet. " +
-        "For now, please register a new test user if you want to try a different narrative."
-    );
+    setMsg("");
+    const trimmedId = userId.trim();
+
+    if (!trimmedId || !trauma) {
+      setMsg("❌ Please enter user ID and a new trauma narrative.");
+      return;
+    }
+
+    const token = localStorage.getItem("ptsd_token");
+    if (!token) {
+      setMsg("❌ You must log in first before updating your trauma narrative.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/intake`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Auth-Token": token,
+        },
+        body: JSON.stringify({
+          user_id: trimmedId,
+          trauma_narrative: trauma,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.detail || `HTTP ${res.status}`);
+      }
+
+      const data = await res.json(); // { status, user_id, updated_at, message }
+      setMsg(
+        data.message
+          ? `✅ Trauma narrative updated. (${data.message})`
+          : "✅ Trauma narrative updated."
+      );
+    } catch (err) {
+      setMsg(`❌ Update failed: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // ---------------------------
-  // 4) Admin login helper
-  // ---------------------------
+  // 4) Admin login helper → POST /api/login with admin ID
   const handleAdminLogin = async () => {
     setMsg("");
     if (!isAdminId) {
@@ -169,8 +199,8 @@ function Intake() {
     <div className="page">
       <h1>Intake / Account</h1>
       <p className="page-intro">
-        On this page, you can create an account, log in, and (in future
-        updates) edit your trauma narrative.
+        On this page, you can create an account, log in, and update your trauma
+        narrative if needed.
       </p>
 
       <div className="card">
@@ -219,8 +249,8 @@ function Intake() {
             • New users: choose <b>Register (new user)</b> and enter ID / PW and
             initial trauma narrative.
             <br />
-            • Existing users: <b>Login</b> with your ID / PW. Trauma editing
-            will be added in a later version.
+            • Existing users: <b>Login</b> first, then use{" "}
+            <b>Update trauma narrative</b> when you want to revise it.
           </p>
         </div>
 
@@ -236,8 +266,8 @@ function Intake() {
           </div>
         )}
 
-        {/* Trauma narrative (register only, for now) */}
-        {mode === "register" && (
+        {/* Trauma narrative (for register & update) */}
+        {mode !== "login" && (
           <div className="field-group">
             <label>Trauma narrative</label>
             <textarea
@@ -283,7 +313,7 @@ function Intake() {
               onClick={handleUpdateTrauma}
               disabled={loading}
             >
-              Update trauma narrative (info)
+              {loading ? "Processing…" : "Update trauma narrative"}
             </button>
           )}
         </div>
