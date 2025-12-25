@@ -28,7 +28,7 @@ function Home({ onStartIntake, onGoSession }) {
           </h1>
 
           <p className="home-hero-subtitle">
-            A clinician-guided platform that generates trauma-specific exposure
+            A clinician-informed platform that generates trauma-specific exposure
             stories, tracks SUDS, and visualizes change across sessions.
           </p>
 
