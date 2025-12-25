@@ -1,57 +1,93 @@
-/* ===== Coach ===== */
+/* src/pages/Team.css */
 
-.coach-card {
-  display: flex;
+.team-page {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.team-title {
+  font-size: 28px;
+  font-weight: 600;
+  margin-bottom: 32px;
+}
+
+/* ===== 공통 Row ===== */
+
+.team-row {
+  display: grid;
+  grid-template-columns: 180px 1fr;
   gap: 28px;
   align-items: flex-start;
+
+  background: rgba(10, 10, 20, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 28px;
+}
+
+/* ===== Coach Row Override ===== */
+
+.coach-row {
   background: linear-gradient(
     180deg,
     rgba(120, 120, 255, 0.08),
     rgba(20, 20, 40, 0.95)
   );
   border: 1px solid rgba(140, 140, 255, 0.25);
-  border-radius: 14px;
-  padding: 28px;
-  margin-bottom: 44px;
 }
 
-.coach-image {
-  width: 160px;
-  height: 160px;
-  object-fit: cover;
+/* ===== Image ===== */
+
+.team-image-wrap {
+  width: 180px;
+  height: 180px;
   border-radius: 10px;
+  overflow: hidden;
   background: #111;
-  filter: grayscale(20%);
+  flex-shrink: 0;
 }
 
-.coach-content {
-  flex: 1;
+.team-image-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-.coach-badge {
-  display: inline-block;
-  font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(130, 130, 255, 0.2);
-  color: #bfc3ff;
-  margin-bottom: 10px;
+/* ===== Text ===== */
+
+.team-content {
+  display: flex;
+  flex-direction: column;
 }
 
-.coach-name {
-  font-size: 22px;
+.team-name {
+  font-size: 21px;
   font-weight: 600;
   margin-bottom: 4px;
 }
 
-.coach-role {
+.team-role {
   font-size: 14px;
-  color: #9fa3ff;
-  margin-bottom: 12px;
+  color: #aab0ff;
+  margin-bottom: 10px;
 }
 
-.coach-bio {
+.team-bio {
   font-size: 14.5px;
   line-height: 1.7;
-  color: #d0d2e0;
+  color: #d0d0d8;
+}
+
+/* ===== Coach Badge ===== */
+
+.coach-badge {
+  align-self: flex-start;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(130, 130, 255, 0.25);
+  color: #c4c8ff;
+  margin-bottom: 8px;
 }
