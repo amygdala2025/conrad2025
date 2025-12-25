@@ -12,8 +12,7 @@ function Team() {
     role: "Clinical Advisor",
     image: coachImg,
     bio: `This project was developed with guidance from a clinician experienced in trauma-informed care.
-The coach provided high-level feedback on safety boundaries, exposure principles, and ethical considerations.
-(This description is a placeholder and will be updated.)`,
+This description is a placeholder and will be updated.`,
   };
 
   const members = [
@@ -36,7 +35,7 @@ I worked on research, design, and technical execution, helping translate complex
       role: "Web & Maintenance",
       image: img2,
       bio: `Hello, my name is Simon, and I am a freshman at Syosset High School.
-I worked on maintaining the website and implementing improvements to enhance usability and overall user experience.`,
+I worked on maintaining the website and implementing improvements to enhance usability.`,
     },
   ];
 
@@ -44,39 +43,34 @@ I worked on maintaining the website and implementing improvements to enhance usa
     <div className="team-page">
       <h2 className="team-title">Team</h2>
 
-      {/* ===== Coach Section ===== */}
-      <div className="coach-card">
-        <img
-          src={coach.image}
-          alt="Team Coach"
-          className="coach-image"
-        />
+      {/* ===== Coach ===== */}
+      <div className="team-row coach-row">
+        <div className="team-image-wrap">
+          <img src={coach.image} alt="Team Coach" />
+        </div>
 
-        <div className="coach-content">
+        <div className="team-content">
           <div className="coach-badge">Coach</div>
-          <h3 className="coach-name">{coach.name}</h3>
-          <div className="coach-role">{coach.role}</div>
-          <p className="coach-bio">{coach.bio}</p>
+          <h3 className="team-name">{coach.name}</h3>
+          <div className="team-role">{coach.role}</div>
+          <p className="team-bio">{coach.bio}</p>
         </div>
       </div>
 
       {/* ===== Members ===== */}
-      <div className="team-list">
-        {members.map((m, idx) => (
-          <div key={idx} className="team-card">
-            <img
-              src={m.image}
-              alt={m.name}
-              className="team-image"
-            />
-            <div className="team-text">
-              <h3 className="team-name">{m.name}</h3>
-              <div className="team-role">{m.role}</div>
-              <p className="team-bio">{m.bio}</p>
-            </div>
+      {members.map((m, idx) => (
+        <div key={idx} className="team-row">
+          <div className="team-image-wrap">
+            <img src={m.image} alt={m.name} />
           </div>
-        ))}
-      </div>
+
+          <div className="team-content">
+            <h3 className="team-name">{m.name}</h3>
+            <div className="team-role">{m.role}</div>
+            <p className="team-bio">{m.bio}</p>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
