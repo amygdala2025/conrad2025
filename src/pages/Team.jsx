@@ -8,11 +8,10 @@ import img2 from "./team_bio/image2.png";
 
 function Team() {
   const coach = {
-    name: "Team Coach",
+    name: "Jihwan",
     role: "Clinical Advisor",
     image: coachImg,
-    bio: `This project was developed with guidance from a clinician experienced in trauma-informed care.
-This description is a placeholder and will be updated.`,
+    bio: `I hold an undergraduate degree in Computer Engineering and previously worked as an AI researcher at a government-funded research institute, where I focused on applied machine learning and data-driven systems. I have also served as a reviewer for IEEE journals, contributing to the evaluation of academic research in the field of artificial intelligence. I am currently a medical student, integrating my background in engineering and AI with clinical training. In parallel, I have participated in multiple medical AI competitions and received several awards for projects focused on healthcare applications. My role in this project is to provide high-level clinical and technical guidance, ensuring that the platform remains clinically informed, ethically grounded, and technically sound.`,
   };
 
   const members = [
